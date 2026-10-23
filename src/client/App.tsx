@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { INGREDIENTS } from '../shared/ingredients';
-import type { Profile, TodayData } from '../shared/types';
+import { BY_ID, isAllergic, SHELVES } from '../shared/ingredients';
+import { slotForHour, type Profile, type Slot, type TodayData } from '../shared/types';
 import { IconDice, IconFlame, IconPot, IconSun, IconUser } from './components/Icons';
-import { api } from './lib/api';
+import { api, auth } from './lib/api';
 import { haptic } from './lib/haptics';
 import { Hoy } from './screens/Hoy';
 import { Kitchen } from './screens/Kitchen';
+import { Login } from './screens/Login';
+import { Onboarding } from './screens/Onboarding';
 import { Racha } from './screens/Racha';
 import { Yo } from './screens/Yo';
 
@@ -25,16 +27,21 @@ function readTab(): Tab {
   return TABS.some((t) => t.id === h) ? h : 'hoy';
 }
 
+type Gate = 'loading' | 'login' | 'onboarding' | 'app';
+
 export function App() {
+  const [gate, setGate] = useState<Gate>(auth.token ? 'loading' : 'login');
   const [tab, setTabState] = useState<Tab>(readTab);
   const [cart, setCart] = useState<string[]>([]);
-  const [profile, setProfile] = useState<Profile>({ dislikes: [], goal: 'verde' });
+  const [slot, setSlot] = useState<Slot>(() => slotForHour(new Date().getHours()));
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [today, setToday] = useState<TodayData | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [kitchenKey, setKitchenKey] = useState(0);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const toastTimer = useRef<number>();
-  const saveTimer = useRef<number>();
+  const [offline, setOffline] = useState(false);
+  const toastTimer = useRef<number | undefined>(undefined);
+  const saveTimer = useRef<number | undefined>(undefined);
 
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -54,13 +61,46 @@ export function App() {
     );
   }, []);
 
+  const enter = useCallback(
+    (p: Profile) => {
+      setProfile(p);
+      setGate(p.onboarded ? 'app' : 'onboarding');
+      if (p.onboarded) loadToday();
+    },
+    [loadToday]
+  );
+
+  const logout = useCallback(() => {
+    auth.set(null);
+    setProfile(null);
+    setToday(null);
+    setCart([]);
+    setGate('login');
+  }, []);
+
+  const boot = useCallback(() => {
+    if (!auth.token) return;
+    setOffline(false);
+    api.me().then(enter).catch(() => {
+      // Sin conexión con sesión guardada: no echamos al usuario, le dejamos reintentar.
+      if (!auth.token) setGate('login');
+      else setOffline(true);
+    });
+  }, [enter]);
+
   useEffect(() => {
-    loadToday();
-    api.me().then(setProfile).catch(() => undefined);
+    boot();
+    const offExpired = auth.onExpired(() => {
+      logout();
+      toast('Tu sesión ha caducado. Vuelve a entrar.');
+    });
     const onHash = () => setTabState(readTab());
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
-  }, [loadToday]);
+    return () => {
+      offExpired();
+      window.removeEventListener('hashchange', onHash);
+    };
+  }, [boot, logout, toast]);
 
   const changeProfile = (p: Profile) => {
     setProfile(p);
@@ -70,17 +110,40 @@ export function App() {
     }, 500);
   };
 
+  const finishOnboarding = async (p: Profile) => {
+    setProfile(p);
+    setGate('app');
+    loadToday();
+    const first = p.slots.includes(slot) ? slot : p.slots[0] ?? slot;
+    setSlot(first);
+    setTab('cocina');
+    try {
+      setProfile(await api.saveMe(p));
+    } catch {
+      toast('Sin conexión: no se ha guardado tu perfil');
+    }
+  };
+
+  const cook = (s?: Slot) => {
+    if (s && s !== slot) {
+      setSlot(s);
+      setCart([]);
+      setKitchenKey((k) => k + 1);
+    }
+    setTab('cocina');
+  };
+
   const surprise = () => {
+    if (!profile) return;
     haptic.drop();
-    const ok = INGREDIENTS.filter((i) => !profile.dislikes.includes(i.id));
-    const by = (c: string) => ok.filter((i) => i.cat === c);
-    const greens = by('verdura').filter((i) => i.green);
-    const choice = [
-      ...pick(by('base').filter((i) => ['arroz', 'pasta', 'patata', 'pan'].includes(i.id)), 1),
-      ...pick(by('proteina'), 1),
-      ...pick(greens.length ? greens : by('verdura'), 1),
-      ...pick(by('verdura').filter((i) => !i.green), 1)
-    ].map((i) => i.id);
+    const ok = (ids: string[]) => ids.filter((id) => !profile.dislikes.includes(id) && !isAllergic(id, profile.allergies));
+    const shelves = SHELVES[slot].map((s) => ok(s.ids));
+    let choice = shelves.flatMap((ids, n) => pick(ids, n === 0 ? 1 : 2));
+    if (slot === 'comida' || slot === 'cena') {
+      const [veg, prot, base] = shelves;
+      const greens = veg.filter((id) => BY_ID[id].green);
+      choice = [...pick(base, 1), ...pick(prot, 1), ...pick(greens.length ? greens : veg, 1), ...pick(veg.filter((id) => !BY_ID[id].green), 1)];
+    }
     setCart([...new Set(choice)]);
     setKitchenKey((k) => k + 1);
     setTab('cocina');
@@ -92,6 +155,21 @@ export function App() {
     setRefreshKey((k) => k + 1);
     setTab('hoy');
   };
+
+  if (gate === 'login') return <Login onAuthed={enter} />;
+  if (gate === 'loading' || !profile)
+    return (
+      <div className="splash" aria-busy="true">
+        <b>PUCHERO</b>
+        <span className="serif">{offline ? 'sin conexión.' : 'calentando…'}</span>
+        {offline && (
+          <button className="btn btn-lime" style={{ marginTop: 24 }} onClick={boot}>
+            Reintentar
+          </button>
+        )}
+      </div>
+    );
+  if (gate === 'onboarding') return <Onboarding profile={profile} onDone={finishOnboarding} />;
 
   return (
     <div className="app">
@@ -118,10 +196,21 @@ export function App() {
       </aside>
 
       <main className="main">
-        {tab === 'hoy' && <Hoy data={today} onCook={() => setTab('cocina')} />}
-        {tab === 'cocina' && <Kitchen key={kitchenKey} cart={cart} setCart={setCart} dislikes={profile.dislikes} onSaved={saved} toast={toast} />}
+        {tab === 'hoy' && <Hoy data={today} profile={profile} onCook={cook} />}
+        {tab === 'cocina' && (
+          <Kitchen
+            key={kitchenKey}
+            cart={cart}
+            setCart={setCart}
+            slot={slot}
+            setSlot={setSlot}
+            profile={profile}
+            onSaved={saved}
+            toast={toast}
+          />
+        )}
         {tab === 'racha' && <Racha data={today} refreshKey={refreshKey} onChanged={() => { loadToday(); }} />}
-        {tab === 'yo' && <Yo profile={profile} onChange={changeProfile} />}
+        {tab === 'yo' && <Yo profile={profile} onChange={changeProfile} onLogout={logout} toast={toast} />}
       </main>
 
       <nav className="pill-nav" aria-label="Navegación">

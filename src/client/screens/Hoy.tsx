@@ -1,20 +1,24 @@
 import { foodImg } from '../../shared/ingredients';
-import type { Meal, Slot, TodayData } from '../../shared/types';
+import { SLOTS as SLOT_ORDER, type Meal, type Profile, type Slot, type TodayData } from '../../shared/types';
 import { IconArrow, IconFlame } from '../components/Icons';
 
 const SLOTS: { id: Slot; label: string; bg: string }[] = [
   { id: 'desayuno', label: 'Desayuno', bg: 'var(--lilac)' },
   { id: 'comida', label: 'Comida', bg: 'var(--butter)' },
+  { id: 'merienda', label: 'Merienda', bg: 'var(--t-fruta)' },
   { id: 'cena', label: 'Cena', bg: 'var(--t-verdura)' }
 ];
 
 const dateLabel = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
 
-export function Hoy({ data, onCook }: { data: TodayData | null; onCook: () => void }) {
+export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile: Profile; onCook: (slot?: Slot) => void }) {
   const meals = data?.meals ?? [];
   const bySlot = (s: Slot): Meal | undefined => meals.find((m) => m.slot === s);
   const done = meals.length;
+  // Las comidas que eligió en el onboarding, más cualquiera que ya haya cocinado hoy.
+  const shown = SLOTS.filter((s) => profile.slots.includes(s.id) || meals.some((m) => m.slot === s.id));
+  const order = (s: { id: Slot }) => SLOT_ORDER.indexOf(s.id);
   const line = done === 0 ? 'toca cocinar.' : done === 1 ? 'vas bien.' : done === 2 ? 'casi perfecto.' : 'día redondo.';
 
   return (
@@ -22,7 +26,7 @@ export function Hoy({ data, onCook }: { data: TodayData | null; onCook: () => vo
       <div className="wrap hoy-grid">
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <p className="mono">{data ? dateLabel(data.date) : '···'}</p>
+            <p className="mono">{data ? dateLabel(data.date) : '···'}{profile.name ? ` · ${profile.name}` : ''}</p>
             <span className="badge" style={{ background: 'var(--tomato)', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
               <IconFlame width={14} height={14} strokeWidth={2.6} />
               {data?.streak ?? 0} {data?.streak === 1 ? 'DÍA' : 'DÍAS'}
@@ -39,7 +43,7 @@ export function Hoy({ data, onCook }: { data: TodayData | null; onCook: () => vo
             <p style={{ margin: '10px 0 0', fontSize: 'clamp(28px, 7.6vw, 40px)', lineHeight: 1, fontWeight: 800, letterSpacing: '-.02em' }}>
               {data?.challenge ?? 'Mete algo verde en cada comida de hoy.'}
             </p>
-            <button className="btn btn-ink" style={{ marginTop: 18, color: 'var(--tomato)' }} onClick={onCook}>
+            <button className="btn btn-ink" style={{ marginTop: 18, color: 'var(--tomato)' }} onClick={() => onCook()}>
               A la cazuela <IconArrow width={20} height={20} />
             </button>
           </div>
@@ -50,7 +54,7 @@ export function Hoy({ data, onCook }: { data: TodayData | null; onCook: () => vo
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {!data && [0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 84 }} />)}
             {data &&
-              SLOTS.map((s) => {
+              [...(shown.length ? shown : SLOTS)].sort((x, y) => order(x) - order(y)).map((s) => {
                 const m = bySlot(s.id);
                 return m ? (
                   <div key={s.id} className="meal-row" style={{ background: s.bg, color: 'var(--ink)' }}>
@@ -70,7 +74,7 @@ export function Hoy({ data, onCook }: { data: TodayData | null; onCook: () => vo
                       <p className="mono" style={{ fontSize: 11 }}>{s.label}</p>
                       <p className="serif" style={{ color: '#cfc8bc' }}>Sin cocinar</p>
                     </div>
-                    <button className="btn btn-lime" style={{ height: 44, padding: '0 16px', fontSize: 14 }} onClick={onCook}>
+                    <button className="btn btn-lime" style={{ height: 44, padding: '0 16px', fontSize: 14 }} onClick={() => onCook(s.id)}>
                       Cocinar
                     </button>
                   </div>

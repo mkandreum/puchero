@@ -18,16 +18,27 @@ Diseño: colores sólidos y tipografía grande (Bricolage Grotesque, Instrument 
 | IA | `@google/genai` con cadena de modelos y reintento, como en VoltBody. Sin clave usa recetas locales |
 | Despliegue | Docker / docker compose, listo para Coolify |
 
-Los usuarios son anónimos: cada dispositivo genera un id y lo envía en la cabecera `x-device-id`, así que no hay login.
+Cuentas con email y contraseña (bcrypt + JWT, el mismo patrón que XyonWork). Al registrarse se pasa un onboarding de 5 pasos (objetivo, comidas, nivel, alergias y manías). Los usuarios anónimos de la versión anterior conservan su racha al registrarse desde el mismo dispositivo.
+
+El súper cambia según la comida: **desayuno** (avena, fruta, yogur, tostadas), **comida**, **merienda** (fruta, yogur, frutos secos) y **cena**. Los alimentos con alérgenos marcados no aparecen.
+
+La app Android vive en [mkandreum/pucheroapp](https://github.com/mkandreum/pucheroapp): empaqueta esta misma web (`API_BASE=https://puchero.xyoncloud.win`) y llama a este servidor.
 
 ## API
 
 | Método | Ruta | Qué hace |
 | --- | --- | --- |
 | GET | `/api/health` | Healthcheck (incluye la base de datos) |
-| GET / PUT | `/api/me` | Perfil: `dislikes` (lo que odias) y `goal` (`verde`, `proteina` o `rapido`) |
+| POST | `/api/auth/register` | `{ name, email, password, deviceId? }` → `{ token, user }` |
+| POST | `/api/auth/login` | `{ email, password }` → `{ token, user }` |
+| POST | `/api/auth/logout-all` | Cierra la sesión en todos los dispositivos |
+| PUT | `/api/me/password` | `{ current, next }` |
+| DELETE | `/api/me` | `{ password }` → borra la cuenta y sus platos |
+| GET / PUT | `/api/me` | Perfil: `name`, `dislikes`, `allergies`, `goal`, `skill`, `slots`, `onboarded` |
 | GET | `/api/today` | Reto del día, comidas de hoy, racha, mejor racha y semana |
-| POST | `/api/recipe` | `{ ingredients: string[] }` → receta (IA o local) |
+| POST | `/api/recipe` | `{ ingredients: string[], slot }` → receta (IA o local) |
+
+Todas las rutas salvo `health` y `auth/*` piden `Authorization: Bearer <token>`.
 | GET / POST | `/api/meals` | Historial / guardar un plato |
 | DELETE | `/api/meals/:id` | Borrar un plato |
 
@@ -38,6 +49,7 @@ Los usuarios son anónimos: cada dispositivo genera un id y lo envía en la cabe
 1. En Coolify, crea un recurso nuevo: *Public/Private Repository* → `mkandreum/puchero` → Build Pack **Docker Compose** (`docker-compose.yaml`).
 2. Configura las variables de entorno:
    - `POSTGRES_PASSWORD`: obligatoria.
+   - `JWT_SECRET`: recomendada, mínimo 32 caracteres (`openssl rand -base64 64`). Si falta, se deriva una de `DATABASE_URL`.
    - `GEMINI_API_KEY`: la de VoltBody. Es opcional; sin ella hay recetas locales.
    - Opcionales: `GEMINI_MODEL_FAST`, `APP_TZ`.
 3. Asigna tu dominio al servicio `app`, puerto **3000**, por ejemplo `puchero.xyoncloud.win`.

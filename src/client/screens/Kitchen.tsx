@@ -1,21 +1,31 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { BY_ID, CATEGORIES, foodImg, INGREDIENTS, MAX_IN_POT, type Category } from '../../shared/ingredients';
-import type { Recipe } from '../../shared/types';
+import { BY_ID, foodImg, isAllergic, MAX_IN_POT, SHELVES, type Category } from '../../shared/ingredients';
+import { SLOTS, type Profile, type Recipe, type Slot } from '../../shared/types';
 import { Cazuela } from '../components/Cazuela';
 import { IconArrow, IconCheck } from '../components/Icons';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
+import { SLOT_INFO } from './Onboarding';
 
 const TURNS = 3;
 const TARGET = TURNS * 2 * Math.PI;
-const TILE_BG: Record<Category, string> = { verdura: 'var(--t-verdura)', proteina: 'var(--t-proteina)', base: 'var(--t-base)' };
+export const TILE_BG: Record<Category, string> = {
+  verdura: 'var(--t-verdura)',
+  proteina: 'var(--t-proteina)',
+  base: 'var(--t-base)',
+  fruta: 'var(--t-fruta)',
+  cereal: 'var(--t-cereal)',
+  lacteo: 'var(--t-lacteo)'
+};
 
 type Phase = 'pick' | 'stir' | 'wait' | 'plato';
 
 interface Props {
   cart: string[];
   setCart: (c: string[]) => void;
-  dislikes: string[];
+  slot: Slot;
+  setSlot: (s: Slot) => void;
+  profile: Profile;
   onSaved: () => void;
   toast: (msg: string) => void;
 }
@@ -28,9 +38,10 @@ interface Drag {
   moved: boolean;
 }
 
-export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
+export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast }: Props) {
+  const { dislikes, allergies } = profile;
   const [phase, setPhase] = useState<Phase>('pick');
-  const [cat, setCat] = useState<Category>('verdura');
+  const [shelfId, setShelfId] = useState(SHELVES[slot][0].id);
   const [over, setOver] = useState(false);
   const [bump, setBump] = useState(0);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
@@ -129,7 +140,7 @@ export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
     stirRef.current = { total: 0, angle: 0 };
     setStir({ total: 0, angle: 0, spoon: null });
     setRecipe(null);
-    recipeP.current = api.recipe(cart, dislikes);
+    recipeP.current = api.recipe(cart, dislikes, slot);
     setPhase('stir');
   };
 
@@ -152,7 +163,7 @@ export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
   const finish = () => {
     haptic.success();
     setPhase('wait');
-    const p = recipeP.current ?? api.recipe(cart, dislikes);
+    const p = recipeP.current ?? api.recipe(cart, dislikes, slot);
     Promise.all([p, new Promise((r) => setTimeout(r, 650))]).then(([r]) => {
       setRecipe(r as Recipe);
       setPhase('plato');
@@ -172,7 +183,7 @@ export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
     if (!recipe || saving) return;
     setSaving(true);
     try {
-      await api.saveMeal(recipe);
+      await api.saveMeal(recipe, slot);
       haptic.success();
       toast('¡A la saca! +1 a tu racha');
       reset();
@@ -187,14 +198,32 @@ export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
 
   const progress = stir.total / TARGET;
   const turn = Math.min(TURNS, Math.floor(stir.total / (2 * Math.PI)) + 1);
-  const shelf = INGREDIENTS.filter((i) => i.cat === cat);
+  const shelves = SHELVES[slot];
+  const current = shelves.find((s) => s.id === shelfId) ?? shelves[0];
+  const shelf = current.ids.filter((id) => !isAllergic(id, allergies)).map((id) => BY_ID[id]);
+
+  const changeSlot = (s: Slot) => {
+    if (s === slot) return;
+    haptic.tap();
+    setSlot(s);
+    setShelfId(SHELVES[s][0].id);
+  };
   const stirring = phase === 'stir' || phase === 'wait';
 
   return (
     <div className="kitchen">
       <header className="k-head">
-        <div>
-          <p className="mono">{stirring ? 'Paso 2/2 · Remueve' : 'Paso 1/2 · Elige'}</p>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          {!stirring && (
+            <div className="slot-switch" role="tablist" aria-label="Qué comida">
+              {SLOTS.map((s) => (
+                <button key={s} role="tab" aria-selected={slot === s} className={slot === s ? 'on' : ''} onClick={() => changeSlot(s)}>
+                  {SLOT_INFO[s].label}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="mono">{stirring ? `Paso 2/2 · Remueve · ${SLOT_INFO[slot].label}` : 'Paso 1/2 · Elige'}</p>
           <h1 className="h-lg k-title" style={{ marginTop: 8 }}>
             {stirring ? 'Gira el dedo' : 'Arrastra'}
             <span className="serif">{stirring ? 'dentro de la cazuela.' : 'a la cazuela.'}</span>
@@ -248,8 +277,8 @@ export function Kitchen({ cart, setCart, dislikes, onSaved, toast }: Props) {
       {!stirring && (
         <section className="k-shelf" aria-label="Súper">
           <div className="chips" role="tablist">
-            {CATEGORIES.map((c) => (
-              <button key={c.id} role="tab" aria-selected={cat === c.id} className={`chip${cat === c.id ? ' on' : ''}`} onClick={() => { haptic.tap(); setCat(c.id); }}>
+            {shelves.map((c) => (
+              <button key={c.id} role="tab" aria-selected={current.id === c.id} className={`chip${current.id === c.id ? ' on' : ''}`} onClick={() => { haptic.tap(); setShelfId(c.id); }}>
                 {c.label}
               </button>
             ))}

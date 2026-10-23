@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const watch = process.argv.includes('--watch');
-const out = path.resolve('dist/public');
+const out = path.resolve(process.env.OUT_DIR || 'dist/public');
 const build = Date.now().toString(36);
 
 fs.rmSync(out, { recursive: true, force: true });
@@ -21,7 +21,11 @@ const ctx = await esbuild.context({
   jsx: 'automatic',
   minify: !watch,
   sourcemap: watch,
-  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production') },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production'),
+    // La app Android empaqueta la web y llama a la API del servidor (API_BASE=https://puchero.xyoncloud.win)
+    __API_BASE__: JSON.stringify(process.env.API_BASE || '')
+  },
   nodePaths: process.env.EXTRA_NODE_PATH ? [process.env.EXTRA_NODE_PATH] : [],
   logLevel: 'info'
 });

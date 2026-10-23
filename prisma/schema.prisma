@@ -7,14 +7,24 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Usuario anónimo identificado por dispositivo (x-device-id)
+/// Cuenta con email y contraseña. Los usuarios anónimos antiguos (id = id de dispositivo)
+/// se convierten en cuenta al registrarse desde ese mismo dispositivo y conservan su racha.
 model User {
-  id        String   @id
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  dislikes  String[] @default([])
-  goal      String   @default("verde")
-  meals     Meal[]
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  email        String?  @unique
+  name         String   @default("")
+  passwordHash String?
+  /// Subirla invalida todas las sesiones (cambio de contraseña, "cerrar sesión en todos")
+  tokenVersion Int      @default(0)
+  dislikes     String[] @default([])
+  allergies    String[] @default([])
+  goal         String   @default("verde")
+  skill        String   @default("apano")
+  slots        String[] @default(["desayuno", "comida", "cena"])
+  onboarded    Boolean  @default(false)
+  meals        Meal[]
 }
 
 model Meal {

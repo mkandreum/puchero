@@ -1,54 +1,95 @@
 import { localRecipe } from '../../shared/recipe';
-import { slotForHour, type Meal, type Profile, type Recipe, type Slot, type TodayData } from '../../shared/types';
+import { slotForHour, type Meal, type Profile, type Recipe, type Session, type Slot, type TodayData } from '../../shared/types';
 
-const KEY = 'puchero.device';
+declare const __API_BASE__: string;
+/** Vacío en la web (mismo origen). La app Android se compila apuntando a puchero.xyoncloud.win. */
+const BASE = typeof __API_BASE__ === 'string' ? __API_BASE__ : '';
 
-function makeId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  const b = new Uint8Array(16);
-  crypto.getRandomValues(b);
-  return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
-}
+const TOKEN_KEY = 'puchero.token';
+const DEVICE_KEY = 'puchero.device';
 
-function deviceId(): string {
+function read(key: string): string | null {
   try {
-    let id = localStorage.getItem(KEY);
-    if (!id) {
-      id = makeId();
-      localStorage.setItem(KEY, id);
-    }
-    return id;
+    return localStorage.getItem(key);
   } catch {
-    return (window as any).__pucheroId ??= makeId();
+    return null;
+  }
+}
+function write(key: string, value: string | null) {
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    /* almacenamiento bloqueado: la sesión dura lo que la pestaña */
   }
 }
 
+let token = read(TOKEN_KEY);
+const listeners = new Set<() => void>();
+
+export const auth = {
+  get token() {
+    return token;
+  },
+  set(t: string | null) {
+    token = t;
+    write(TOKEN_KEY, t);
+  },
+  /** Avisa a la app cuando el servidor da la sesión por caducada. */
+  onExpired(fn: () => void) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
+};
+
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(BASE + path, {
     ...init,
-    headers: { 'content-type': 'application/json', 'x-device-id': deviceId(), ...(init.headers || {}) }
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(init.headers || {})
+    }
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401 && token && !path.startsWith('/api/auth/')) {
+      auth.set(null);
+      listeners.forEach((fn) => fn());
+    }
     throw new Error(body.error || `Error ${res.status}`);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }
 
+const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
+
+async function startSession(p: Promise<Session>): Promise<Profile> {
+  const s = await p;
+  auth.set(s.token);
+  return s.user;
+}
+
 export const api = {
+  register: (name: string, email: string, password: string) =>
+    // Si este navegador ya cocinaba sin cuenta, el servidor le pasa la racha a la cuenta nueva.
+    startSession(req<Session>('/api/auth/register', json('POST', { name, email, password, deviceId: read(DEVICE_KEY) }))),
+  login: (email: string, password: string) => startSession(req<Session>('/api/auth/login', json('POST', { email, password }))),
+  logoutAll: () => startSession(req<Session>('/api/auth/logout-all', { method: 'POST' })),
+  changePassword: (current: string, next: string) => startSession(req<Session>('/api/me/password', json('PUT', { current, next }))),
+  deleteAccount: (password: string) => req<void>('/api/me', json('DELETE', { password })),
   me: () => req<Profile>('/api/me'),
-  saveMe: (p: Partial<Profile>) => req<Profile>('/api/me', { method: 'PUT', body: JSON.stringify(p) }),
+  saveMe: (p: Partial<Profile>) => req<Profile>('/api/me', json('PUT', p)),
   today: () => req<TodayData>('/api/today'),
   meals: (limit = 40) => req<Meal[]>(`/api/meals?limit=${limit}`),
   deleteMeal: (id: string) => req<void>(`/api/meals/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  async recipe(ingredients: string[], dislikes: string[]): Promise<Recipe> {
+  async recipe(ingredients: string[], dislikes: string[], slot: Slot): Promise<Recipe> {
     try {
-      return await req<Recipe>('/api/recipe', { method: 'POST', body: JSON.stringify({ ingredients }) });
+      return await req<Recipe>('/api/recipe', json('POST', { ingredients, slot }));
     } catch {
       // Sin conexión o servidor caído: la cocina sigue funcionando en local.
       return localRecipe(ingredients, dislikes);
     }
   },
-  saveMeal: (r: Recipe, slot: Slot = slotForHour(new Date().getHours())) =>
-    req<Meal>('/api/meals', { method: 'POST', body: JSON.stringify({ ...r, slot }) })
+  saveMeal: (r: Recipe, slot: Slot = slotForHour(new Date().getHours())) => req<Meal>('/api/meals', json('POST', { ...r, slot }))
 };

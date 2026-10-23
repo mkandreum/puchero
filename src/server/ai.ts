@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { BY_ID } from '../shared/ingredients';
 import { localRecipe, macros } from '../shared/recipe';
-import type { Goal, Recipe } from '../shared/types';
+import type { Goal, Profile, Recipe, Skill, Slot } from '../shared/types';
 
 // Mismo patrón que VoltBody Powered: Gemini con cadena de modelos configurables desde Coolify.
 const LEGACY_MODEL = 'gemini-3-flash-preview';
@@ -69,12 +69,25 @@ const GOALS: Record<Goal, string> = {
   rapido: 'quiere platos rapidísimos, de pocos pasos'
 };
 
-function buildPrompt(ids: string[], dislikes: string[], goal: Goal) {
+const SKILLS: Record<Skill, string> = {
+  cero: 'No sabe cocinar nada: explica cada paso como a alguien que nunca ha encendido un fuego.',
+  apano: 'Se apaña en la cocina.',
+  chef: 'Cocina bien: puedes proponer alguna técnica con más gracia.'
+};
+
+const SLOT_TEXT: Record<Slot, string> = {
+  desayuno: 'Es un DESAYUNO sano: nada de guisos ni frituras, algo dulce o salado ligero.',
+  comida: 'Es la COMIDA principal del día.',
+  merienda: 'Es una MERIENDA: algo pequeño, sano y rápido, sin cocinar si se puede.',
+  cena: 'Es una CENA: ligera y fácil de digerir.'
+};
+
+function buildPrompt(ids: string[], p: Profile, slot: Slot) {
   const names = ids.map((id) => BY_ID[id].name).join(', ');
-  const hated = ids.filter((id) => dislikes.includes(id)).map((id) => BY_ID[id].name);
+  const hated = ids.filter((id) => p.dislikes.includes(id)).map((id) => BY_ID[id].name);
   return `Eres el chef de PUCHERO, una app para gente a la que le cuesta comer bien (manías o pereza).
 Crea UN plato casero en español de España usando SOLO estos ingredientes (más aceite, sal, especias y agua): ${names}.
-El usuario ${GOALS[goal]}.${hated.length ? ` Odia: ${hated.join(', ')}. Escóndelo con una técnica concreta (rallar, triturar en salsa, gratinar...).` : ''}
+${SLOT_TEXT[slot]} El usuario ${GOALS[p.goal]}. ${SKILLS[p.skill]}${p.allergies.length ? ` Alergias o intolerancias: ${p.allergies.join(', ')}; no añadas nada que las contenga.` : ''}${hated.length ? ` Odia: ${hated.join(', ')}. Escóndelo con una técnica concreta (rallar, triturar en salsa, gratinar...).` : ''}
 Tono: cercano, divertido, cero sermones. Pasos cortos y concretos (máx. 16 palabras cada uno).
 Responde SOLO JSON con esta forma exacta:
 {"title":"nombre del plato, máx 6 palabras","tagline":"frase gancho, máx 9 palabras","tip":"truco para camuflar lo que menos gusta, máx 18 palabras","steps":["paso 1","paso 2","paso 3","paso 4"],"minutes":15}`;
@@ -82,11 +95,11 @@ Responde SOLO JSON con esta forma exacta:
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export async function makeRecipe(ids: string[], dislikes: string[], goal: Goal): Promise<Recipe> {
-  const fallback = localRecipe(ids, dislikes);
+export async function makeRecipe(ids: string[], profile: Profile, slot: Slot): Promise<Recipe> {
+  const fallback = localRecipe(ids, profile.dislikes);
   if (!ai) return fallback;
   try {
-    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, dislikes, goal))));
+    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, profile, slot))));
     const steps = Array.isArray(json.steps)
       ? json.steps.map((s: unknown) => str(s, 160)).filter(Boolean).slice(0, 6)
       : [];

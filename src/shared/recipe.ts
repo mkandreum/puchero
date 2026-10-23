@@ -21,6 +21,17 @@ const has = (ids: string[], id: string) => ids.includes(id);
 
 /** Plato principal según la combinación: [nombre, ids que ya nombra, paso clave] */
 function mainDish(ids: string[]): [string, string[], string] {
+  const fruits = ids.filter((id) => BY_ID[id].cat === 'fruta');
+  if (has(ids, 'tortitas'))
+    return ['Tortitas', ['tortitas'], 'Haz las tortitas en sartén antiadherente 1 min por lado, a fuego medio.'];
+  if (has(ids, 'avena'))
+    return ['Porridge de avena', ['avena', 'leche'], 'Cuece la avena con leche (o agua) 4 min removiendo hasta que espese.'];
+  if (has(ids, 'yogur'))
+    return ['Bol de yogur', ['yogur'], 'Pon el yogur en un bol hondo y reparte lo demás por encima.'];
+  if (has(ids, 'leche') && fruits.length)
+    return ['Batido', ['leche'], 'Tritura la fruta con la leche 30 segundos y sírvelo bien frío.'];
+  if (fruits.length >= 2 && ids.every((id) => ['fruta', 'cereal'].includes(BY_ID[id].cat)))
+    return ['Macedonia', [], 'Corta la fruta en dados del mismo tamaño y mézclala con cuidado.'];
   if (has(ids, 'patata') && has(ids, 'huevo'))
     return ['Tortilla de patata', ['patata', 'huevo'], 'Pocha la patata a fuego suave 12 min, escurre y cuaja con el huevo batido.'];
   if (has(ids, 'gambas') && has(ids, 'ajo'))
@@ -51,7 +62,12 @@ function mainDish(ids: string[]): [string, string[], string] {
 export function camouflageTip(ids: string[], dislikes: string[]): string {
   const hated = ids.filter((id) => dislikes.includes(id)).map((id) => BY_ID[id]);
   const target: Ingredient | undefined = hated[0] ?? ids.map((id) => BY_ID[id]).find((i) => i?.green);
-  if (!target) return 'Sirve en bol hondo y termina con un chorrito de aceite crudo: entra todo mejor.';
+  if (!target)
+    return ids.every((id) => ['fruta', 'cereal', 'lacteo'].includes(BY_ID[id]?.cat))
+      ? 'Un puñado de algo crujiente por encima y entra solo, hasta con sueño.'
+      : 'Sirve en bol hondo y termina con un chorrito de aceite crudo: entra todo mejor.';
+  if (target.cat === 'fruta')
+    return `${target.name}: tritúralo en batido o mézclalo con avena caliente. Solo queda el dulzor.`;
   if (target.cat === 'verdura')
     return `${target.name}: rállalo o tritúralo con la salsa. Aporta todo y ni lo vas a ver.`;
   return `${target.name}: córtalo muy pequeño y mézclalo con algo que te encante.`;
@@ -65,22 +81,32 @@ export function localRecipe(ids: string[], dislikes: string[] = []): Recipe {
   let title = base;
   if (shown.length) title += rest.length > 3 ? ` con ${shown.join(', ')} y más` : ` con ${joinEs(shown)}`;
   const greens = clean.some((id) => BY_ID[id].green);
+  const sweet = clean.every((id) => ['fruta', 'cereal', 'lacteo'].includes(BY_ID[id].cat));
   const hated = clean.some((id) => dislikes.includes(id));
   const { kcal, protein, minutes } = macros(clean);
   return {
     title,
     tagline: hated
       ? 'Lo que odias va camuflado. Palabra.'
-      : greens
-        ? 'Lo verde va de incógnito. Ni lo notarás.'
-        : 'Rápido, rico y sin excusas.',
+      : sweet
+        ? 'Dulce, rápido y sin culpa.'
+        : greens
+          ? 'Lo verde va de incógnito. Ni lo notarás.'
+          : 'Rápido, rico y sin excusas.',
     tip: camouflageTip(clean, dislikes),
-    steps: [
-      'Corta todo pequeño: así nada protagoniza más de la cuenta.',
-      keyStep,
-      greens ? 'Añade lo verde al final, picado fino, solo 1 minuto.' : 'Incorpora el resto y deja que se mezclen los sabores 2 min.',
-      'Prueba, ajusta de sal y emplata en bol hondo.'
-    ],
+    steps: sweet
+      ? [
+          'Lava y corta la fruta en trozos de bocado.',
+          keyStep,
+          'Termina con lo crujiente o lo dulce por encima, en el último momento.',
+          'Cómetelo al momento: así está en su punto.'
+        ]
+      : [
+          'Corta todo pequeño: así nada protagoniza más de la cuenta.',
+          keyStep,
+          greens ? 'Añade lo verde al final, picado fino, solo 1 minuto.' : 'Incorpora el resto y deja que se mezclen los sabores 2 min.',
+          'Prueba, ajusta de sal y emplata en bol hondo.'
+        ],
     ingredients: clean,
     kcal,
     protein,

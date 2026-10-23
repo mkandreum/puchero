@@ -1,4 +1,6 @@
-export type Slot = 'desayuno' | 'comida' | 'cena';
+export type Slot = 'desayuno' | 'comida' | 'merienda' | 'cena';
+
+export const SLOTS: Slot[] = ['desayuno', 'comida', 'merienda', 'cena'];
 
 export interface Recipe {
   title: string;
@@ -19,9 +21,23 @@ export interface Meal extends Recipe {
   createdAt: string;
 }
 
+export type Skill = 'cero' | 'apano' | 'chef';
+
 export interface Profile {
+  name: string;
+  email: string;
   dislikes: string[];
+  allergies: string[];
   goal: Goal;
+  skill: Skill;
+  /** Comidas que quiere resolver con PUCHERO */
+  slots: Slot[];
+  onboarded: boolean;
+}
+
+export interface Session {
+  token: string;
+  user: Profile;
 }
 
 export type Goal = 'verde' | 'proteina' | 'rapido';
@@ -45,7 +61,8 @@ export interface TodayData {
 }
 
 export function slotForHour(h: number): Slot {
-  if (h < 12) return 'desayuno';
-  if (h < 18) return 'comida';
+  if (h < 11) return 'desayuno';
+  if (h < 16) return 'comida';
+  if (h < 20) return 'merienda';
   return 'cena';
 }
