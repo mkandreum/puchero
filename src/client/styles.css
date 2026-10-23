@@ -294,7 +294,7 @@ img { -webkit-user-drag: none; user-select: none; }
 .auth-hero { position: relative; flex: 1 0 auto; min-height: 300px; padding: calc(22px + env(safe-area-inset-top, 0px)) 16px 26px; display: flex; flex-direction: column; justify-content: flex-end; }
 .auth-word {
   margin: 0; font-weight: 800; letter-spacing: -.055em; line-height: .78; color: var(--paper);
-  font-size: clamp(76px, 25.5vw, 196px); position: relative; z-index: 1; transition: color .5s;
+  font-size: clamp(64px, 22.5vw, 196px); position: relative; z-index: 1; transition: color .5s;
 }
 .is-new .auth-word { color: var(--ink); }
 .auth-slogan { margin: 6px 0 0; font-size: clamp(44px, 13vw, 92px); line-height: .9; color: var(--lime); position: relative; z-index: 1; transition: color .5s; }
