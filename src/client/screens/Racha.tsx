@@ -4,6 +4,7 @@ import type { Meal, TodayData } from '../../shared/types';
 import { IconTrash } from '../components/Icons';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
+import { useCountUp } from '../lib/useCountUp';
 
 const when = (iso: string) =>
   new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -23,24 +24,27 @@ export function Racha({ data, refreshKey, onChanged }: { data: TodayData | null;
   };
 
   const streak = data?.streak ?? 0;
+  const shown = useCountUp(streak);
+  const best = useCountUp(data?.best ?? 0);
+  const total = useCountUp(data?.total ?? 0);
   return (
     <div className="screen">
-      <div className="wrap">
+      <div className="wrap rise">
         <p className="mono">Tu racha</p>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap', marginTop: 10 }}>
-          <span className="h-xl" style={{ fontSize: 'clamp(140px, 42vw, 260px)', color: 'var(--butter)' }}>{streak}</span>
+          <span className="h-xl" style={{ fontSize: 'clamp(140px, 42vw, 260px)', color: 'var(--butter)' }}>{shown}</span>
           <span className="serif" style={{ fontSize: 'clamp(48px, 13vw, 88px)', lineHeight: 1, marginBottom: '.1em' }}>
-            {streak === 1 ? 'día' : 'días'} seguidos.
+            {streak === 1 ? 'día seguido.' : 'días seguidos.'}
           </span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginTop: 24, maxWidth: 560 }}>
           <div className="card" style={{ background: 'var(--lilac)', color: 'var(--ink)' }}>
-            <b style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.04em' }}>{data?.best ?? 0}</b>
+            <b style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.04em' }}>{best}</b>
             <p className="mono" style={{ color: 'var(--ink)' }}>Mejor racha</p>
           </div>
           <div className="card" style={{ background: 'var(--lime)', color: 'var(--ink)' }}>
-            <b style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.04em' }}>{data?.total ?? 0}</b>
+            <b style={{ fontSize: 48, fontWeight: 800, letterSpacing: '-.04em' }}>{total}</b>
             <p className="mono" style={{ color: 'var(--ink)' }}>Platos cocinados</p>
           </div>
         </div>

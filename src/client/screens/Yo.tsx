@@ -34,7 +34,7 @@ export function Yo({ profile, onChange, onLogout, toast }: Props) {
 
   return (
     <div className="screen">
-      <div className="wrap">
+      <div className="wrap rise">
         <p className="mono">Tu perfil{profile.name ? ` · ${profile.name}` : ''}</p>
         <h1 className="h-lg" style={{ marginTop: 10, fontSize: 'clamp(56px, 15vw, 120px)' }}>
           LO QUE

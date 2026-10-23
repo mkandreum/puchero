@@ -81,7 +81,7 @@ export const Cazuela = forwardRef<HTMLDivElement, CazuelaProps>(function Cazuela
   const down = (e: RPointerEvent<HTMLDivElement>) => {
     if (mode !== 'stir') return;
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero ya liberado: seguimos sin captura */ }
     last.current = toAngle(e);
     onStir?.(0, last.current);
   };

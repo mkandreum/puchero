@@ -50,6 +50,17 @@ img { -webkit-user-drag: none; user-select: none; }
 /* ── Layout ────────────────────────────────── */
 .app { height: 100%; display: flex; }
 .main { flex: 1; min-width: 0; height: 100%; position: relative; overflow: hidden; }
+.screen, .kitchen { animation: screenIn .5s cubic-bezier(.2,1,.3,1) both; }
+@keyframes screenIn { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+/* Entrada escalonada de bloques */
+.rise > * { animation: riseIn .7s cubic-bezier(.2,1,.3,1) both; }
+.rise > :nth-child(2) { animation-delay: .04s; } .rise > :nth-child(3) { animation-delay: .08s; }
+.rise > :nth-child(4) { animation-delay: .12s; } .rise > :nth-child(5) { animation-delay: .16s; }
+.rise > :nth-child(6) { animation-delay: .2s; } .rise > :nth-child(7) { animation-delay: .24s; }
+.rise > :nth-child(8) { animation-delay: .28s; } .rise > :nth-child(n+9) { animation-delay: .32s; }
+.rise-late > * { animation-delay: calc(.18s + var(--d, 0s)); }
+.rise-late > :nth-child(2) { --d: .05s; } .rise-late > :nth-child(3) { --d: .1s; } .rise-late > :nth-child(4) { --d: .15s; }
+@keyframes riseIn { from { opacity: 0; transform: translateY(26px) scale(.97); } }
 .screen { height: 100%; overflow-y: auto; padding: 20px 16px calc(var(--nav-h) + 56px + var(--safe-b)); scrollbar-width: none; }
 .screen::-webkit-scrollbar { display: none; }
 .wrap { max-width: 1180px; margin: 0 auto; }
@@ -92,6 +103,8 @@ img { -webkit-user-drag: none; user-select: none; }
   position: fixed; left: 12px; right: 12px; bottom: calc(14px + var(--safe-b)); z-index: 40;
   display: flex; gap: 10px; align-items: center; max-width: 520px; margin: 0 auto;
 }
+/* Con el plato abierto el fundido es mantequilla, no tinta */
+.app:has(.plato) .pill-nav::before { background: linear-gradient(to bottom, rgba(255,216,77,0), var(--butter) 55%); }
 /* Fundido a tinta detrás de la píldora: lo que pasa por debajo no se cuela entre botones */
 .pill-nav::before {
   content: ''; position: fixed; left: 0; right: 0; bottom: 0; z-index: -1; pointer-events: none;
@@ -99,7 +112,7 @@ img { -webkit-user-drag: none; user-select: none; }
   background: linear-gradient(to bottom, rgba(20,18,16,0), var(--ink) 55%);
 }
 .pill {
-  flex: 1; height: var(--nav-h); border-radius: 999px; background: var(--paper);
+  position: relative; flex: 1; height: var(--nav-h); border-radius: 999px; background: var(--paper);
   display: flex; align-items: center; gap: 2px; padding: 6px;
   box-shadow: 0 10px 30px rgba(0,0,0,.45);
 }
@@ -108,7 +121,18 @@ img { -webkit-user-drag: none; user-select: none; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   font-size: 11px; font-weight: 700; transition: background .25s, color .25s, transform .15s;
 }
-.pill-tab.on { background: var(--ink); color: var(--lime); }
+.pill-tab { position: relative; z-index: 1; }
+.pill-tab svg { transition: transform .45s cubic-bezier(.3,1.6,.5,1); }
+.pill-tab.on { color: var(--lime); }
+.pill-tab.on svg { transform: translateY(-1.5px) scale(1.12); }
+/* Indicador tinta que viaja entre pestañas con muelle */
+.pill-ind {
+  position: absolute; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 18px) / 4); border-radius: 999px; background: var(--ink);
+  transform: translateX(calc(var(--i, 0) * (100% + 2px)));
+  transition: transform .5s cubic-bezier(.3,1.35,.45,1);
+}
+.dice-roll { animation: roll .7s cubic-bezier(.3,1.5,.5,1); }
+@keyframes roll { from { transform: rotate(-360deg) scale(.7); } }
 .pill-tab:active { transform: scale(.94); }
 .pill-fab {
   width: var(--nav-h); height: var(--nav-h); flex: none; border: 0; border-radius: 999px;
@@ -177,6 +201,10 @@ img { -webkit-user-drag: none; user-select: none; }
 @media (min-width: 1024px) { .tile { height: 116px; } .tile img { width: 64px !important; height: 64px !important; } .tile span { font-size: 14px !important; } }
 .tile:hover img { transform: translateY(-3px) rotate(-6deg); }
 .tile:active { transform: scale(.93); }
+.tile:active img { transform: translateY(-4px) rotate(-8deg) scale(1.08); }
+.chip, .slot-switch button, .ob-chip, .auth-switch button { transition: background .25s, color .25s, transform .2s cubic-bezier(.3,1.6,.5,1); }
+.chip:active, .slot-switch button:active, .ob-chip:active, .auth-switch button:active { transform: scale(.94); }
+.meal-row { animation: none; transition: transform .2s cubic-bezier(.3,1.6,.5,1); }
 .tile img { width: 48px; height: 48px; object-fit: contain; transition: transform .25s cubic-bezier(.3,1.6,.5,1); pointer-events: none; }
 .tile span { font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .tile.in { opacity: .28; cursor: default; }
@@ -266,6 +294,18 @@ img { -webkit-user-drag: none; user-select: none; }
 .thumbs { display: flex; }
 .thumbs img { width: 30px; height: 30px; margin-left: -6px; background: var(--ink-3); border-radius: 99px; padding: 3px; border: 2px solid var(--ink-2); }
 .thumbs img:first-child { margin-left: 0; }
+
+/* ── Celebración al guardar un plato ───────── */
+.party { position: fixed; inset: 0; z-index: 150; pointer-events: none; overflow: hidden; }
+.party-x { position: absolute; left: calc(50% - 23px); top: 78%; width: 46px; height: 46px; animation: partyX 1.6s linear both; }
+.party-x img { width: 100%; height: 100%; animation: partyY 1.6s cubic-bezier(.2,.6,.4,1) both; }
+@keyframes partyX { to { transform: translateX(var(--dx)); } }
+@keyframes partyY {
+  0% { transform: translateY(0) scale(.6) rotate(0); opacity: 1; }
+  40% { transform: translateY(var(--up)) scale(1.15) rotate(calc(var(--rot) * .4)); }
+  85% { opacity: 1; }
+  100% { transform: translateY(calc(var(--up) * -0.6)) scale(1) rotate(var(--rot)); opacity: 0; }
+}
 
 /* ── Toast ─────────────────────────────────── */
 .toast {

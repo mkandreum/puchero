@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BY_ID, isAllergic, SHELVES } from '../shared/ingredients';
 import { slotForHour, type Profile, type Slot, type TodayData } from '../shared/types';
+import { Celebration } from './components/Celebration';
 import { IconDice, IconFlame, IconPot, IconSun, IconUser } from './components/Icons';
 import { api, auth } from './lib/api';
 import { haptic } from './lib/haptics';
@@ -40,6 +41,9 @@ export function App() {
   const [kitchenKey, setKitchenKey] = useState(0);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
+  const [party, setParty] = useState<{ n: number; ids: string[] } | null>(null);
+  const [diceSpin, setDiceSpin] = useState(0);
+  const partyTimer = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
   const saveTimer = useRef<number | undefined>(undefined);
 
@@ -136,13 +140,15 @@ export function App() {
   const surprise = () => {
     if (!profile) return;
     haptic.drop();
+    setDiceSpin((n) => n + 1);
     const ok = (ids: string[]) => ids.filter((id) => !profile.dislikes.includes(id) && !isAllergic(id, profile.allergies));
     const shelves = SHELVES[slot].map((s) => ok(s.ids));
     let choice = shelves.flatMap((ids, n) => pick(ids, n === 0 ? 1 : 2));
     if (slot === 'comida' || slot === 'cena') {
       const [veg, prot, base] = shelves;
       const greens = veg.filter((id) => BY_ID[id].green);
-      choice = [...pick(base, 1), ...pick(prot, 1), ...pick(greens.length ? greens : veg, 1), ...pick(veg.filter((id) => !BY_ID[id].green), 1)];
+      const starch = base.filter((id) => ['arroz', 'pasta', 'patata', 'pan'].includes(id));
+      choice = [...pick(starch.length ? starch : base, 1), ...pick(prot, 1), ...pick(greens.length ? greens : veg, 1), ...pick(veg.filter((id) => !BY_ID[id].green), 1)];
     }
     setCart([...new Set(choice)]);
     setKitchenKey((k) => k + 1);
@@ -150,7 +156,10 @@ export function App() {
     toast('Cazuela sorpresa. ¡A remover!');
   };
 
-  const saved = () => {
+  const saved = (ids: string[] = []) => {
+    setParty((p) => ({ n: (p?.n ?? 0) + 1, ids }));
+    clearTimeout(partyTimer.current);
+    partyTimer.current = window.setTimeout(() => setParty(null), 1900);
     loadToday();
     setRefreshKey((k) => k + 1);
     setTab('hoy');
@@ -214,7 +223,8 @@ export function App() {
       </main>
 
       <nav className="pill-nav" aria-label="Navegación">
-        <div className="pill">
+        <div className="pill" style={{ ['--i' as string]: TABS.findIndex((t) => t.id === tab) }}>
+          <span className="pill-ind" aria-hidden="true" />
           {TABS.map(({ id, label, Icon }) => (
             <button key={id} className={`pill-tab${tab === id ? ' on' : ''}`} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}>
               <Icon width={21} height={21} /> {label}
@@ -222,11 +232,12 @@ export function App() {
           ))}
         </div>
         <button className="pill-fab" aria-label="Sorpréndeme: cazuela al azar" onClick={surprise}>
-          <IconDice width={26} height={26} />
+          <IconDice key={diceSpin} className={diceSpin ? 'dice-roll' : undefined} width={26} height={26} />
         </button>
       </nav>
 
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
+      {party && <Celebration key={party.n} seed={party.n} ids={party.ids} />}
     </div>
   );
 }

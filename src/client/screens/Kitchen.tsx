@@ -5,6 +5,7 @@ import { Cazuela } from '../components/Cazuela';
 import { IconArrow, IconCheck } from '../components/Icons';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
+import { useCountUp } from '../lib/useCountUp';
 import { SLOT_INFO } from './Onboarding';
 
 const TURNS = 3;
@@ -26,7 +27,7 @@ interface Props {
   slot: Slot;
   setSlot: (s: Slot) => void;
   profile: Profile;
-  onSaved: () => void;
+  onSaved: (ingredients: string[]) => void;
   toast: (msg: string) => void;
 }
 
@@ -98,7 +99,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
   const tileDown = (e: RPointerEvent<HTMLButtonElement>, id: string) => {
     if (phase !== 'pick' || cart.includes(id) || e.button > 0) return;
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* puntero ya liberado: seguimos sin captura */ }
     drag.current = { id, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false };
   };
   const tileMove = (e: RPointerEvent<HTMLButtonElement>) => {
@@ -151,7 +152,9 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
     const q = Math.floor(total / (Math.PI / 2));
     if (q > quarter.current) {
       quarter.current = q;
-      haptic.stir();
+      // Cada cuarto un toque; cada vuelta completa, un golpe más marcado
+      if (q % 4 === 0 && total < TARGET) haptic.drop();
+      else haptic.stir();
       setBump((b) => b + 1);
     }
     const next = { total, angle: s.angle + delta * 0.9 };
@@ -187,7 +190,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
       haptic.success();
       toast('¡A la saca! +1 a tu racha');
       reset();
-      onSaved();
+      onSaved(recipe.ingredients);
     } catch (err) {
       haptic.error();
       toast((err as Error).message || 'No se pudo guardar');
@@ -197,6 +200,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
   };
 
   const progress = stir.total / TARGET;
+  const pct = useCountUp(Math.round(progress * 100), 180);
   const turn = Math.min(TURNS, Math.floor(stir.total / (2 * Math.PI)) + 1);
   const shelves = SHELVES[slot];
   const current = shelves.find((s) => s.id === shelfId) ?? shelves[0];
@@ -257,7 +261,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
             {phase === 'wait' ? (
               <p className="cooking-wait">emplatando…</p>
             ) : (
-              <button className="btn btn-line" style={{ height: 44, color: 'var(--muted)' }} onClick={() => reset(false)}>
+              <button className="btn btn-line" style={{ height: 44, color: 'var(--muted)' }} onClick={() => { haptic.tap(); reset(false); }}>
                 Volver
               </button>
             )}
@@ -312,7 +316,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
 
       {stirring && (
         <section className="k-shelf" aria-live="polite">
-          <p className="stir-count">{Math.round(progress * 100)}%</p>
+          <p className="stir-count">{pct}%</p>
           <p className="mono" style={{ marginTop: 10 }}>
             {progress === 0 ? 'Pon el dedo en la cazuela y gira' : progress < 1 ? 'Sigue, sigue… huele que alimenta' : 'Listo'}
           </p>
@@ -382,7 +386,7 @@ function Plato({ recipe, dislikes, saving, onEat, onAgain }: { recipe: Recipe; d
             <button className="btn btn-ink" style={{ flex: 1, height: 58 }} onClick={onEat} disabled={saving}>
               <IconCheck width={20} height={20} /> {saving ? 'Guardando…' : 'Me lo como'}
             </button>
-            <button className="btn btn-line" style={{ height: 58 }} onClick={onAgain}>
+            <button className="btn btn-line" style={{ height: 58 }} onClick={() => { haptic.tap(); onAgain(); }}>
               Otra
             </button>
           </div>

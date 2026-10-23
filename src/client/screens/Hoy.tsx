@@ -1,6 +1,8 @@
 import { foodImg } from '../../shared/ingredients';
 import { SLOTS as SLOT_ORDER, type Meal, type Profile, type Slot, type TodayData } from '../../shared/types';
 import { IconArrow, IconFlame } from '../components/Icons';
+import { haptic } from '../lib/haptics';
+import { useCountUp } from '../lib/useCountUp';
 
 const SLOTS: { id: Slot; label: string; bg: string }[] = [
   { id: 'desayuno', label: 'Desayuno', bg: 'var(--lilac)' },
@@ -14,6 +16,7 @@ const dateLabel = (iso: string) =>
 
 export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile: Profile; onCook: (slot?: Slot) => void }) {
   const meals = data?.meals ?? [];
+  const streak = useCountUp(data?.streak ?? 0);
   const bySlot = (s: Slot): Meal | undefined => meals.find((m) => m.slot === s);
   const done = meals.length;
   // Las comidas que eligió en el onboarding, más cualquiera que ya haya cocinado hoy.
@@ -24,12 +27,12 @@ export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile
   return (
     <div className="screen">
       <div className="wrap hoy-grid">
-        <div>
+        <div className="rise">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
             <p className="mono">{data ? dateLabel(data.date) : '···'}{profile.name ? ` · ${profile.name}` : ''}</p>
             <span className="badge" style={{ background: 'var(--tomato)', color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
               <IconFlame width={14} height={14} strokeWidth={2.6} />
-              {data?.streak ?? 0} {data?.streak === 1 ? 'DÍA' : 'DÍAS'}
+              {streak} {data?.streak === 1 ? 'DÍA' : 'DÍAS'}
             </span>
           </div>
           <h1 className="h-xl" style={{ marginTop: 18, fontSize: 'clamp(110px, 32vw, 210px)' }}>HOY</h1>
@@ -43,7 +46,7 @@ export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile
             <p style={{ margin: '10px 0 0', fontSize: 'clamp(28px, 7.6vw, 40px)', lineHeight: 1, fontWeight: 800, letterSpacing: '-.02em' }}>
               {data?.challenge ?? 'Mete algo verde en cada comida de hoy.'}
             </p>
-            <button className="btn btn-ink" style={{ marginTop: 18, color: 'var(--tomato)' }} onClick={() => onCook()}>
+            <button className="btn btn-ink" style={{ marginTop: 18, color: 'var(--tomato)' }} onClick={() => { haptic.tap(); onCook(); }}>
               A la cazuela <IconArrow width={20} height={20} />
             </button>
           </div>
@@ -51,7 +54,8 @@ export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile
 
         <div>
           <p className="mono" style={{ marginBottom: 12 }}>Tus comidas</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* las filas entran escalonadas, después del titular */}
+          <div className="rise rise-late" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {!data && [0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 84 }} />)}
             {data &&
               [...(shown.length ? shown : SLOTS)].sort((x, y) => order(x) - order(y)).map((s) => {
@@ -74,7 +78,7 @@ export function Hoy({ data, profile, onCook }: { data: TodayData | null; profile
                       <p className="mono" style={{ fontSize: 11 }}>{s.label}</p>
                       <p className="serif" style={{ color: '#cfc8bc' }}>Sin cocinar</p>
                     </div>
-                    <button className="btn btn-lime" style={{ height: 44, padding: '0 16px', fontSize: 14 }} onClick={() => onCook(s.id)}>
+                    <button className="btn btn-lime" style={{ height: 44, padding: '0 16px', fontSize: 14 }} onClick={() => { haptic.tap(); onCook(s.id); }}>
                       Cocinar
                     </button>
                   </div>
