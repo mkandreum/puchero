@@ -1,5 +1,17 @@
 import { localRecipe } from '../../shared/recipe';
-import { slotForHour, type Meal, type Profile, type Recipe, type Session, type Slot, type TodayData } from '../../shared/types';
+import {
+  slotForHour,
+  type Achievement,
+  type Meal,
+  type Plan,
+  type Profile,
+  type Recipe,
+  type Session,
+  type ShoppingItem,
+  type Slot,
+  type Summary,
+  type TodayData
+} from '../../shared/types';
 
 declare const __API_BASE__: string;
 /** Vacío en la web (mismo origen). La app Android se compila apuntando a puchero.xyoncloud.win. */
@@ -81,15 +93,31 @@ export const api = {
   me: () => req<Profile>('/api/me'),
   saveMe: (p: Partial<Profile>) => req<Profile>('/api/me', json('PUT', p)),
   today: () => req<TodayData>('/api/today'),
-  meals: (limit = 40) => req<Meal[]>(`/api/meals?limit=${limit}`),
+  meals: (limit = 40, favorites = false) => req<Meal[]>(`/api/meals?limit=${limit}${favorites ? '&favorites=1' : ''}`),
+  updateMeal: (id: string, patch: { favorite?: boolean; rating?: number }) =>
+    req<Meal>(`/api/meals/${encodeURIComponent(id)}`, json('PATCH', patch)),
+  water: (delta: number) => req<{ glasses: number }>('/api/water', json('POST', { delta })),
+  summary: () => req<Summary>('/api/summary'),
+  achievements: () => req<Achievement[]>('/api/achievements'),
+  plan: () => req<Plan>('/api/plan'),
+  newPlan: () => req<Plan>('/api/plan/generate', { method: 'POST' }),
+  swapPlan: (date: string, slot: Slot) => req<Plan>('/api/plan/swap', json('POST', { date, slot })),
+  shopping: () => req<ShoppingItem[]>('/api/shopping'),
+  saveShopping: (items: ShoppingItem[]) => req<ShoppingItem[]>('/api/shopping', json('PUT', { items })),
+  shoppingFromPlan: () => req<ShoppingItem[]>('/api/shopping/from-plan', { method: 'POST' }),
+  scanFridge: (image: string) => req<{ ids: string[] }>('/api/fridge/scan', json('POST', { image })),
+  pushKey: () => req<{ key: string }>('/api/push/key'),
+  pushSubscribe: (subscription: PushSubscriptionJSON) => req<void>('/api/push/subscribe', json('POST', { subscription })),
+  pushUnsubscribe: (endpoint: string) => req<void>('/api/push/unsubscribe', json('POST', { endpoint })),
   deleteMeal: (id: string) => req<void>(`/api/meals/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  async recipe(ingredients: string[], dislikes: string[], slot: Slot): Promise<Recipe> {
+  async recipe(ingredients: string[], dislikes: string[], slot: Slot, servings: number): Promise<Recipe> {
     try {
-      return await req<Recipe>('/api/recipe', json('POST', { ingredients, slot }));
+      return await req<Recipe>('/api/recipe', json('POST', { ingredients, slot, servings }));
     } catch {
       // Sin conexión o servidor caído: la cocina sigue funcionando en local.
-      return localRecipe(ingredients, dislikes);
+      return localRecipe(ingredients, dislikes, servings);
     }
   },
-  saveMeal: (r: Recipe, slot: Slot = slotForHour(new Date().getHours())) => req<Meal>('/api/meals', json('POST', { ...r, slot }))
+  saveMeal: (r: Recipe, slot: Slot = slotForHour(new Date().getHours()), favorite = false) =>
+    req<Meal>('/api/meals', json('POST', { ...r, slot, favorite }))
 };

@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { BY_ID, foodImg, isAllergic, MAX_IN_POT, SHELVES, type Category } from '../../shared/ingredients';
+import { amountsFor, BY_ID, foodImg, isAllergic, MAX_IN_POT, searchIngredients, SHELVES, type Category } from '../../shared/ingredients';
 import { SLOTS, type Profile, type Recipe, type Slot } from '../../shared/types';
 import { Cazuela } from '../components/Cazuela';
-import { IconArrow, IconCheck } from '../components/Icons';
+import { CookMode } from '../components/CookMode';
+import { IconArrow, IconCheck, IconHeart, IconSearch, IconShare, IconTimer, IconX } from '../components/Icons';
+import { Stepper } from '../components/Stepper';
+import { shareRecipe } from '../lib/shareCard';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
 import { useCountUp } from '../lib/useCountUp';
@@ -16,7 +19,8 @@ export const TILE_BG: Record<Category, string> = {
   base: 'var(--t-base)',
   fruta: 'var(--t-fruta)',
   cereal: 'var(--t-cereal)',
-  lacteo: 'var(--t-lacteo)'
+  lacteo: 'var(--t-lacteo)',
+  despensa: 'var(--t-despensa)'
 };
 
 type Phase = 'pick' | 'stir' | 'wait' | 'plato';
@@ -27,6 +31,8 @@ interface Props {
   slot: Slot;
   setSlot: (s: Slot) => void;
   profile: Profile;
+  /** Plato a repetir desde el historial: abre directamente emplatado */
+  replay?: Recipe | null;
   onSaved: (ingredients: string[]) => void;
   toast: (msg: string) => void;
 }
@@ -39,16 +45,18 @@ interface Drag {
   moved: boolean;
 }
 
-export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast }: Props) {
+export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved, toast }: Props) {
   const { dislikes, allergies } = profile;
-  const [phase, setPhase] = useState<Phase>('pick');
-  const [shelfId, setShelfId] = useState(SHELVES[slot][0].id);
+  const pantryOk = profile.pantry.filter((id) => !isAllergic(id, allergies));
+  const [phase, setPhase] = useState<Phase>(replay ? 'plato' : 'pick');
+  const [shelfId, setShelfId] = useState(pantryOk.length ? 'nevera' : SHELVES[slot][0].id);
+  const [query, setQuery] = useState('');
   const [over, setOver] = useState(false);
   const [bump, setBump] = useState(0);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [ghost, setGhost] = useState<string | null>(null);
   const [stir, setStir] = useState({ total: 0, angle: 0, spoon: null as number | null });
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(replay ?? null);
   const [saving, setSaving] = useState(false);
 
   const potRef = useRef<HTMLDivElement>(null);
@@ -141,7 +149,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
     stirRef.current = { total: 0, angle: 0 };
     setStir({ total: 0, angle: 0, spoon: null });
     setRecipe(null);
-    recipeP.current = api.recipe(cart, dislikes, slot);
+    recipeP.current = api.recipe(cart, dislikes, slot, profile.servings);
     setPhase('stir');
   };
 
@@ -166,7 +174,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
   const finish = () => {
     haptic.success();
     setPhase('wait');
-    const p = recipeP.current ?? api.recipe(cart, dislikes, slot);
+    const p = recipeP.current ?? api.recipe(cart, dislikes, slot, profile.servings);
     Promise.all([p, new Promise((r) => setTimeout(r, 650))]).then(([r]) => {
       setRecipe(r as Recipe);
       setPhase('plato');
@@ -182,11 +190,11 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
     if (clear) setCart([]);
   };
 
-  const eat = async () => {
+  const eat = async (favorite: boolean) => {
     if (!recipe || saving) return;
     setSaving(true);
     try {
-      await api.saveMeal(recipe, slot);
+      await api.saveMeal(recipe, slot, favorite);
       haptic.success();
       toast('¡A la saca! +1 a tu racha');
       reset();
@@ -202,15 +210,16 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
   const progress = stir.total / TARGET;
   const pct = useCountUp(Math.round(progress * 100), 180);
   const turn = Math.min(TURNS, Math.floor(stir.total / (2 * Math.PI)) + 1);
-  const shelves = SHELVES[slot];
+  const shelves = pantryOk.length ? [{ id: 'nevera', label: 'En tu nevera', ids: pantryOk }, ...SHELVES[slot]] : SHELVES[slot];
   const current = shelves.find((s) => s.id === shelfId) ?? shelves[0];
-  const shelf = current.ids.filter((id) => !isAllergic(id, allergies)).map((id) => BY_ID[id]);
+  const searching = query.trim().length > 0;
+  const shelf = (searching ? searchIngredients(query) : current.ids.map((id) => BY_ID[id])).filter((it) => !isAllergic(it.id, allergies));
 
   const changeSlot = (s: Slot) => {
     if (s === slot) return;
     haptic.tap();
     setSlot(s);
-    setShelfId(SHELVES[s][0].id);
+    setShelfId(pantryOk.length ? 'nevera' : SHELVES[s][0].id);
   };
   const stirring = phase === 'stir' || phase === 'wait';
 
@@ -280,13 +289,31 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
 
       {!stirring && (
         <section className="k-shelf" aria-label="Súper">
-          <div className="chips" role="tablist">
-            {shelves.map((c) => (
-              <button key={c.id} role="tab" aria-selected={current.id === c.id} className={`chip${current.id === c.id ? ' on' : ''}`} onClick={() => { haptic.tap(); setShelfId(c.id); }}>
-                {c.label}
+          <label className="search">
+            <IconSearch width={18} height={18} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Busca: garbanzos, salmón, fresas…"
+              aria-label="Buscar alimento"
+              enterKeyHint="search"
+            />
+            {searching && (
+              <button type="button" aria-label="Borrar búsqueda" onClick={() => { haptic.tap(); setQuery(''); }}>
+                <IconX width={16} height={16} />
               </button>
-            ))}
-          </div>
+            )}
+          </label>
+          {!searching && (
+            <div className="chips" role="tablist">
+              {shelves.map((c) => (
+                <button key={c.id} role="tab" aria-selected={current.id === c.id} className={`chip${current.id === c.id ? ' on' : ''}${c.id === 'nevera' ? ' fridge' : ''}`} onClick={() => { haptic.tap(); setShelfId(c.id); }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {searching && shelf.length === 0 && <p className="serif" style={{ fontSize: 26, color: '#cfc8bc', margin: '6px 0' }}>Nada con “{query.trim()}”.</p>}
           <div className="grid-food">
             {shelf.map((it) => {
               const inPot = cart.includes(it.id);
@@ -334,18 +361,68 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, onSaved, toast 
         </div>
       )}
 
-      {phase === 'plato' && recipe && <Plato recipe={recipe} dislikes={dislikes} saving={saving} onEat={eat} onAgain={() => reset()} />}
+      {phase === 'plato' && recipe && (
+        <Plato recipe={recipe} setRecipe={setRecipe} dislikes={dislikes} saving={saving} replay={!!replay} onEat={eat} onAgain={() => reset()} toast={toast} />
+      )}
     </div>
   );
 }
 
-function Plato({ recipe, dislikes, saving, onEat, onAgain }: { recipe: Recipe; dislikes: string[]; saving: boolean; onEat: () => void; onAgain: () => void }) {
+function Plato({
+  recipe,
+  setRecipe,
+  dislikes,
+  saving,
+  replay,
+  onEat,
+  onAgain,
+  toast
+}: {
+  recipe: Recipe;
+  setRecipe: (r: Recipe) => void;
+  dislikes: string[];
+  saving: boolean;
+  replay: boolean;
+  onEat: (favorite: boolean) => void;
+  onAgain: () => void;
+  toast: (msg: string) => void;
+}) {
+  const [fav, setFav] = useState(false);
+  const [cooking, setCooking] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const orbit = recipe.ingredients.slice(0, 6);
+  const servings = recipe.servings || 1;
+
+  const setServings = (n: number) => setRecipe({ ...recipe, servings: n, amounts: amountsFor(recipe.ingredients, n) });
+  const share = async () => {
+    haptic.tap();
+    setSharing(true);
+    try {
+      const r = await shareRecipe(recipe);
+      if (r === 'downloaded') toast('Tarjeta descargada: compártela donde quieras');
+      if (r === 'shared') haptic.success();
+    } catch {
+      toast('No se ha podido crear la tarjeta');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
     <section className="plato" aria-label="Tu plato">
       <div className="plato-grid">
         <div>
-          <p className="mono">Listo · {recipe.source === 'ia' ? 'receta de la IA' : 'receta de la casa'}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <p className="mono">{replay ? 'Otra vez' : 'Listo'} · {recipe.source === 'ia' ? 'receta de la IA' : 'receta de la casa'}</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className={`icon-btn ink${fav ? ' fav' : ''}`} aria-pressed={fav} aria-label={fav ? 'Quitar de favoritos' : 'Guardar en favoritos'} onClick={() => { haptic[fav ? 'tap' : 'drop'](); setFav(!fav); }}>
+                <IconHeart width={20} height={20} filled={fav} />
+              </button>
+              <button className="icon-btn ink" aria-label="Compartir receta" disabled={sharing} onClick={share}>
+                <IconShare width={20} height={20} />
+              </button>
+            </div>
+          </div>
           <h1 className="serif plato-title">{recipe.title}</h1>
           <p style={{ margin: '14px 0 0', fontSize: 22, fontWeight: 700, lineHeight: 1.15 }}>{recipe.tagline}</p>
           <div className="plato-hero">
@@ -366,10 +443,27 @@ function Plato({ recipe, dislikes, saving, onEat, onAgain }: { recipe: Recipe; d
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div className="macro">
-            <div><b>{recipe.kcal}</b><p className="mono">kcal aprox.</p></div>
+            <div><b>{recipe.kcal}</b><p className="mono">kcal / persona</p></div>
             <div><b>{recipe.protein}g</b><p className="mono">proteína</p></div>
             <div><b>{recipe.minutes}'</b><p className="mono">minutos</p></div>
           </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <p className="mono">Ingredientes</p>
+              <Stepper tone="light" value={servings} min={1} max={12} onChange={setServings} label={(n) => `${n} ${n === 1 ? 'persona' : 'personas'}`} />
+            </div>
+            <ul className="ings">
+              {recipe.ingredients.map((id, i) => (
+                <li key={id}>
+                  <img src={foodImg(id)} alt="" />
+                  <span>{BY_ID[id]?.name}</span>
+                  <b key={recipe.amounts[i]}>{recipe.amounts[i]}</b>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           <div className="tip">
             <p className="mono">{recipe.ingredients.some((i) => dislikes.includes(i)) ? 'Truco anti-manías' : 'Truco'}</p>
             <p style={{ margin: '8px 0 0', fontSize: 19, lineHeight: 1.3, fontWeight: 600 }}>{recipe.tip}</p>
@@ -382,8 +476,11 @@ function Plato({ recipe, dislikes, saving, onEat, onAgain }: { recipe: Recipe; d
               </li>
             ))}
           </ol>
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button className="btn btn-ink" style={{ flex: 1, height: 58 }} onClick={onEat} disabled={saving}>
+          <button className="btn btn-line" style={{ height: 58, color: 'var(--ink)' }} onClick={() => { haptic.drop(); setCooking(true); }}>
+            <IconTimer width={20} height={20} /> Cocinar paso a paso
+          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn btn-ink" style={{ flex: 1, height: 58 }} onClick={() => onEat(fav)} disabled={saving}>
               <IconCheck width={20} height={20} /> {saving ? 'Guardando…' : 'Me lo como'}
             </button>
             <button className="btn btn-line" style={{ height: 58 }} onClick={() => { haptic.tap(); onAgain(); }}>
@@ -392,6 +489,7 @@ function Plato({ recipe, dislikes, saving, onEat, onAgain }: { recipe: Recipe; d
           </div>
         </div>
       </div>
+      {cooking && <CookMode recipe={recipe} onClose={() => setCooking(false)} onDone={() => setCooking(false)} />}
     </section>
   );
 }

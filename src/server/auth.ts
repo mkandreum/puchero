@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { NextFunction, Request, Response } from 'express';
 import type { PrismaClient, User } from '@prisma/client';
-import { SLOTS, type Goal, type Profile, type Skill, type Slot } from '../shared/types';
+import { DEFAULT_REMINDERS, SLOTS, type Goal, type Profile, type Reminders, type Skill, type Slot } from '../shared/types';
 
 const SESSION_SECONDS = 60 * 24 * 60 * 60; // 60 días: es una app de cocina, no un banco
 export const PASSWORD_MIN = 8;
@@ -48,8 +48,25 @@ export function toProfile(u: User): Profile {
     goal: GOALS.includes(u.goal as Goal) ? (u.goal as Goal) : 'verde',
     skill: SKILLS.includes(u.skill as Skill) ? (u.skill as Skill) : 'apano',
     slots: u.slots.filter((s): s is Slot => SLOTS.includes(s as Slot)),
-    onboarded: u.onboarded
+    onboarded: u.onboarded,
+    pantry: u.pantry,
+    servings: u.servings,
+    reminders: readReminders(u.reminders),
+    waterGoal: u.waterGoal
   };
+}
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Recordatorios guardados (JSON) con valores por defecto para lo que falte o venga mal. */
+export function readReminders(v: unknown): Reminders {
+  const o = (v && typeof v === 'object' ? v : {}) as Partial<Reminders>;
+  const times = { ...DEFAULT_REMINDERS.times };
+  for (const s of SLOTS) {
+    const t = (o.times as Record<string, unknown> | undefined)?.[s];
+    if (typeof t === 'string' && TIME_RE.test(t)) times[s] = t;
+  }
+  return { enabled: o.enabled === true, times };
 }
 
 export const isGoal = (v: unknown): v is Goal => GOALS.includes(v as Goal);

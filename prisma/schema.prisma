@@ -24,7 +24,51 @@ model User {
   skill        String   @default("apano")
   slots        String[] @default(["desayuno", "comida", "cena"])
   onboarded    Boolean  @default(false)
+  /// "Mi nevera": lo que hay en casa
+  pantry       String[] @default([])
+  /// Personas para las que cocina normalmente
+  servings     Int      @default(1)
+  /// { enabled, times: { desayuno: "08:30", ... } }
+  reminders    Json?
+  waterGoal    Int      @default(8)
+  /// Plan de la semana { weekStart, items: [...] }
+  plan         Json?
+  /// Lista de la compra [{ id, label?, amount?, done }]
+  shopping     Json?
   meals        Meal[]
+  water        WaterLog[]
+  pushSubs     PushSub[]
+}
+
+/// Vasos de agua por día (YYYY-MM-DD en APP_TZ)
+model WaterLog {
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day     String
+  glasses Int    @default(0)
+
+  @@id([userId, day])
+}
+
+/// Suscripciones Web Push para los recordatorios de la web
+model PushSub {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  /// Último aviso enviado "YYYY-MM-DD:slot", para no repetir
+  lastSent  String   @default("")
+
+  @@index([userId])
+}
+
+/// Ajustes del servidor (claves VAPID generadas si no vienen en el entorno)
+model Setting {
+  key   String @id
+  value String
 }
 
 model Meal {
@@ -36,6 +80,11 @@ model Meal {
   tip         String   @default("")
   steps       String[]
   ingredients String[]
+  amounts     String[] @default([])
+  servings    Int      @default(1)
+  favorite    Boolean  @default(false)
+  /// 1 me gustó, -1 no me gustó, 0 sin valorar
+  rating      Int      @default(0)
   kcal        Int
   protein     Int
   minutes     Int

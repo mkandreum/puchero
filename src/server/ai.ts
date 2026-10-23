@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { BY_ID } from '../shared/ingredients';
+import { amountsFor, BY_ID, INGREDIENTS, isValidIngredient } from '../shared/ingredients';
 import { localRecipe, macros } from '../shared/recipe';
 import type { Goal, Profile, Recipe, Skill, Slot } from '../shared/types';
 
@@ -26,13 +26,13 @@ const isBusy = (e: any) => /"code":503|unavailable|high demand/i.test(String(e?.
 const isUnsupportedConfig = (e: any) =>
   errStatus(e) === 400 && /thinking|not supported|unsupported|invalid argument/i.test(String(e?.message || ''));
 
-async function generate(prompt: string): Promise<string> {
+async function generate(prompt: string | object[], maxTokens = 700): Promise<string> {
   let last: unknown = null;
   for (const model of MODELS) {
-    let cfg: Record<string, unknown> = CONFIG;
+    let cfg: Record<string, unknown> = { ...CONFIG, maxOutputTokens: maxTokens };
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const res = await ai!.models.generateContent({ model, contents: prompt, config: cfg });
+        const res = await ai!.models.generateContent({ model, contents: prompt as any, config: cfg });
         return res.text ?? '';
       } catch (e) {
         last = e;
@@ -82,12 +82,18 @@ const SLOT_TEXT: Record<Slot, string> = {
   cena: 'Es una CENA: ligera y fácil de digerir.'
 };
 
-function buildPrompt(ids: string[], p: Profile, slot: Slot) {
+export interface Taste {
+  liked: string[];
+  disliked: string[];
+}
+
+function buildPrompt(ids: string[], p: Profile, slot: Slot, servings: number, taste: Taste) {
   const names = ids.map((id) => BY_ID[id].name).join(', ');
   const hated = ids.filter((id) => p.dislikes.includes(id)).map((id) => BY_ID[id].name);
   return `Eres el chef de PUCHERO, una app para gente a la que le cuesta comer bien (manías o pereza).
 Crea UN plato casero en español de España usando SOLO estos ingredientes (más aceite, sal, especias y agua): ${names}.
-${SLOT_TEXT[slot]} El usuario ${GOALS[p.goal]}. ${SKILLS[p.skill]}${p.allergies.length ? ` Alergias o intolerancias: ${p.allergies.join(', ')}; no añadas nada que las contenga.` : ''}${hated.length ? ` Odia: ${hated.join(', ')}. Escóndelo con una técnica concreta (rallar, triturar en salsa, gratinar...).` : ''}
+${SLOT_TEXT[slot]} Para ${servings} ${servings === 1 ? 'persona' : 'personas'}. El usuario ${GOALS[p.goal]}. ${SKILLS[p.skill]}${p.allergies.length ? ` Alergias o intolerancias: ${p.allergies.join(', ')}; no añadas nada que las contenga.` : ''}${hated.length ? ` Odia: ${hated.join(', ')}. Escóndelo con una técnica concreta (rallar, triturar en salsa, gratinar...).` : ''}
+${taste.liked.length ? `Platos que le gustaron: ${taste.liked.join('; ')}.` : ''}${taste.disliked.length ? ` Platos que NO le gustaron (evita ese estilo): ${taste.disliked.join('; ')}.` : ''}
 Tono: cercano, divertido, cero sermones. Pasos cortos y concretos (máx. 16 palabras cada uno).
 Responde SOLO JSON con esta forma exacta:
 {"title":"nombre del plato, máx 6 palabras","tagline":"frase gancho, máx 9 palabras","tip":"truco para camuflar lo que menos gusta, máx 18 palabras","steps":["paso 1","paso 2","paso 3","paso 4"],"minutes":15}`;
@@ -95,11 +101,11 @@ Responde SOLO JSON con esta forma exacta:
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export async function makeRecipe(ids: string[], profile: Profile, slot: Slot): Promise<Recipe> {
-  const fallback = localRecipe(ids, profile.dislikes);
+export async function makeRecipe(ids: string[], profile: Profile, slot: Slot, servings: number, taste: Taste): Promise<Recipe> {
+  const fallback = localRecipe(ids, profile.dislikes, servings);
   if (!ai) return fallback;
   try {
-    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, profile, slot))));
+    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, profile, slot, servings, taste))));
     const steps = Array.isArray(json.steps)
       ? json.steps.map((s: unknown) => str(s, 160)).filter(Boolean).slice(0, 6)
       : [];
@@ -113,6 +119,8 @@ export async function makeRecipe(ids: string[], profile: Profile, slot: Slot): P
       tip: str(json.tip, 160) || fallback.tip,
       steps,
       ingredients: ids,
+      amounts: amountsFor(ids, servings),
+      servings,
       kcal: m.kcal,
       protein: m.protein,
       minutes: Number.isFinite(minutes) && minutes > 0 && minutes < 120 ? Math.round(minutes) : m.minutes,
@@ -122,4 +130,18 @@ export async function makeRecipe(ids: string[], profile: Profile, slot: Slot): P
     console.warn('[ai] usando receta local:', (e as Error)?.message?.slice(0, 120));
     return fallback;
   }
+}
+
+export const aiEnabled = () => ai !== null;
+
+/** Lee una foto de la nevera o la despensa y devuelve los alimentos del catálogo que se ven. */
+export async function scanFridge(base64: string, mimeType: string): Promise<string[]> {
+  if (!ai) throw new Error('NO_AI');
+  const catalog = INGREDIENTS.map((i) => `${i.id} (${i.name})`).join(', ');
+  const prompt = `Mira la foto de una nevera, despensa o encimera. Di qué alimentos de esta lista se ven claramente.
+Lista (usa SOLO estos ids): ${catalog}.
+Responde SOLO JSON: {"ids":["id1","id2"]}. Si no ves ninguno: {"ids":[]}.`;
+  const raw = await generate([{ role: 'user', parts: [{ inlineData: { mimeType, data: base64 } }, { text: prompt }] }], 300);
+  const json = JSON.parse(extractJson(raw));
+  return Array.isArray(json.ids) ? [...new Set<string>(json.ids.filter(isValidIngredient))].slice(0, 40) : [];
 }

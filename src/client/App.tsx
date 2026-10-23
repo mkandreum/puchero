@@ -1,22 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BY_ID, isAllergic, SHELVES } from '../shared/ingredients';
-import { slotForHour, type Profile, type Slot, type TodayData } from '../shared/types';
+import { BY_ID, isAllergic, SHELVES, STARCHES } from '../shared/ingredients';
+import { slotForHour, type Meal, type PlanItem, type Profile, type Recipe, type Slot, type TodayData } from '../shared/types';
 import { Celebration } from './components/Celebration';
-import { IconDice, IconFlame, IconPot, IconSun, IconUser } from './components/Icons';
+import { IconCalendar, IconDice, IconFlame, IconPot, IconSun, IconUser } from './components/Icons';
 import { api, auth } from './lib/api';
 import { haptic } from './lib/haptics';
+import { registerSW } from './lib/push';
 import { Hoy } from './screens/Hoy';
 import { Kitchen } from './screens/Kitchen';
 import { Login } from './screens/Login';
 import { Onboarding } from './screens/Onboarding';
 import { Racha } from './screens/Racha';
+import { Semana } from './screens/Semana';
 import { Yo } from './screens/Yo';
 
-type Tab = 'hoy' | 'cocina' | 'racha' | 'yo';
+type Tab = 'hoy' | 'cocina' | 'semana' | 'racha' | 'yo';
 
 const TABS: { id: Tab; label: string; Icon: typeof IconSun }[] = [
   { id: 'hoy', label: 'Hoy', Icon: IconSun },
   { id: 'cocina', label: 'Cocina', Icon: IconPot },
+  { id: 'semana', label: 'Semana', Icon: IconCalendar },
   { id: 'racha', label: 'Racha', Icon: IconFlame },
   { id: 'yo', label: 'Yo', Icon: IconUser }
 ];
@@ -43,6 +46,8 @@ export function App() {
   const [offline, setOffline] = useState(false);
   const [party, setParty] = useState<{ n: number; ids: string[] } | null>(null);
   const [diceSpin, setDiceSpin] = useState(0);
+  /** Plato que se repite desde el historial: la cocina abre directamente en el plato */
+  const [replay, setReplay] = useState<Recipe | null>(null);
   const partyTimer = useRef<number | undefined>(undefined);
   const toastTimer = useRef<number | undefined>(undefined);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -61,7 +66,10 @@ export function App() {
 
   const loadToday = useCallback(() => {
     api.today().then(setToday).catch(() =>
-      setToday((prev) => prev ?? { date: new Date().toISOString().slice(0, 10), challenge: 'Mete algo verde en cada comida de hoy.', streak: 0, best: 0, total: 0, week: [], meals: [] })
+      setToday(
+        (prev) =>
+          prev ?? { date: new Date().toISOString().slice(0, 10), challenge: 'Mete algo verde en cada comida de hoy.', streak: 0, best: 0, total: 0, week: [], meals: [], water: 0, freezes: 1, plan: [] }
+      )
     );
   }, []);
 
@@ -93,6 +101,7 @@ export function App() {
   }, [enter]);
 
   useEffect(() => {
+    registerSW();
     boot();
     const offExpired = auth.onExpired(() => {
       logout();
@@ -147,7 +156,7 @@ export function App() {
     if (slot === 'comida' || slot === 'cena') {
       const [veg, prot, base] = shelves;
       const greens = veg.filter((id) => BY_ID[id].green);
-      const starch = base.filter((id) => ['arroz', 'pasta', 'patata', 'pan'].includes(id));
+      const starch = base.filter((id) => STARCHES.includes(id));
       choice = [...pick(starch.length ? starch : base, 1), ...pick(prot, 1), ...pick(greens.length ? greens : veg, 1), ...pick(veg.filter((id) => !BY_ID[id].green), 1)];
     }
     setCart([...new Set(choice)]);
@@ -156,7 +165,27 @@ export function App() {
     toast('Cazuela sorpresa. ¡A remover!');
   };
 
+  /** Cocinar lo que toca del plan: misma comida e ingredientes, a remover. */
+  const cookPlan = (it: PlanItem) => {
+    setSlot(it.slot);
+    setCart(it.ingredients);
+    setReplay(null);
+    setKitchenKey((k) => k + 1);
+    setTab('cocina');
+  };
+
+  /** Repetir un plato guardado: se abre ya emplatado, listo para "Me lo como". */
+  const repeat = (m: Meal) => {
+    haptic.drop();
+    setSlot(m.slot);
+    setCart(m.ingredients);
+    setReplay({ ...m, servings: m.servings || profile?.servings || 1 });
+    setKitchenKey((k) => k + 1);
+    setTab('cocina');
+  };
+
   const saved = (ids: string[] = []) => {
+    setReplay(null);
     setParty((p) => ({ n: (p?.n ?? 0) + 1, ids }));
     clearTimeout(partyTimer.current);
     partyTimer.current = window.setTimeout(() => setParty(null), 1900);
@@ -205,7 +234,17 @@ export function App() {
       </aside>
 
       <main className="main">
-        {tab === 'hoy' && <Hoy data={today} profile={profile} onCook={cook} />}
+        {tab === 'hoy' && (
+          <Hoy
+            data={today}
+            profile={profile}
+            onCook={cook}
+            onCookPlan={cookPlan}
+            onWater={(glasses) => setToday((d) => (d ? { ...d, water: glasses } : d))}
+            onRated={loadToday}
+            toast={toast}
+          />
+        )}
         {tab === 'cocina' && (
           <Kitchen
             key={kitchenKey}
@@ -214,11 +253,13 @@ export function App() {
             slot={slot}
             setSlot={setSlot}
             profile={profile}
+            replay={replay}
             onSaved={saved}
             toast={toast}
           />
         )}
-        {tab === 'racha' && <Racha data={today} refreshKey={refreshKey} onChanged={() => { loadToday(); }} />}
+        {tab === 'semana' && <Semana profile={profile} onChange={changeProfile} onCookPlan={cookPlan} toast={toast} />}
+        {tab === 'racha' && <Racha data={today} refreshKey={refreshKey} onChanged={loadToday} onRepeat={repeat} toast={toast} />}
         {tab === 'yo' && <Yo profile={profile} onChange={changeProfile} onLogout={logout} toast={toast} />}
       </main>
 

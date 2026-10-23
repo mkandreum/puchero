@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { ALLERGIES, CATEGORIES, foodImg, INGREDIENTS } from '../../shared/ingredients';
-import { SLOTS, type Goal, type Profile, type Skill } from '../../shared/types';
+import { SLOT_LABEL, SLOTS, type Goal, type Profile, type Skill, type Slot } from '../../shared/types';
+import { IconBell } from '../components/Icons';
+import { Stepper } from '../components/Stepper';
+import { disablePush, enablePush } from '../lib/push';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
 import { SLOT_INFO } from './Onboarding';
@@ -84,6 +87,19 @@ export function Yo({ profile, onChange, onLogout, toast }: Props) {
             );
           })}
         </div>
+
+        <div className="yo-steppers">
+          <div>
+            <p className="mono" style={{ margin: '30px 0 12px' }}>Cocino para</p>
+            <Stepper value={profile.servings} min={1} max={12} onChange={(n) => onChange({ ...profile, servings: n })} label={(n) => `${n} ${n === 1 ? 'persona' : 'personas'}`} />
+          </div>
+          <div>
+            <p className="mono" style={{ margin: '30px 0 12px' }}>Agua al día</p>
+            <Stepper value={profile.waterGoal} min={4} max={16} onChange={(n) => onChange({ ...profile, waterGoal: n })} label={(n) => `${n} vasos`} />
+          </div>
+        </div>
+
+        <ReminderSettings profile={profile} onChange={onChange} toast={toast} />
 
         <p className="mono" style={{ margin: '30px 0 12px' }}>En la cocina soy</p>
         <div className="chips wrap-chips">
@@ -229,6 +245,57 @@ function Account({ profile, onLogout, toast }: { profile: Profile; onLogout: () 
             {busy ? 'Borrando…' : 'Borrar mi cuenta para siempre'}
           </button>
         </form>
+      )}
+    </section>
+  );
+}
+
+/** Recordatorios a la hora de cada comida elegida (Web Push en la web). */
+function ReminderSettings({ profile, onChange, toast }: { profile: Profile; onChange: (p: Profile) => void; toast: (m: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const r = profile.reminders;
+  const toggle = async () => {
+    haptic.tap();
+    setBusy(true);
+    try {
+      if (!r.enabled) {
+        const err = await enablePush();
+        if (err) {
+          haptic.error();
+          toast(err);
+          return;
+        }
+        haptic.success();
+        toast('Hecho: te avisaré a la hora de cada comida');
+      } else await disablePush();
+      onChange({ ...profile, reminders: { ...r, enabled: !r.enabled } });
+    } catch {
+      toast('Este navegador no deja activar avisos. Prueba con Chrome o Firefox en el móvil.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const setTime = (s: Slot, t: string) => onChange({ ...profile, reminders: { ...r, times: { ...r.times, [s]: t } } });
+  return (
+    <section className="reminders">
+      <p className="mono" style={{ margin: '30px 0 12px' }}>Recordatorios</p>
+      <button className={`switch-row${r.enabled ? ' on' : ''}`} role="switch" aria-checked={r.enabled} disabled={busy} onClick={toggle}>
+        <IconBell width={22} height={22} />
+        <span>
+          <b>Avísame para cocinar</b>
+          <small>Solo en tus comidas, y no si ya has cocinado.</small>
+        </span>
+        <i className="switch" />
+      </button>
+      {r.enabled && (
+        <div className="times">
+          {SLOTS.filter((s) => profile.slots.includes(s)).map((s) => (
+            <label key={s} className="time">
+              <span className="mono">{SLOT_LABEL[s]}</span>
+              <input type="time" value={r.times[s]} onChange={(e) => e.target.value && setTime(s, e.target.value)} />
+            </label>
+          ))}
+        </div>
       )}
     </section>
   );
