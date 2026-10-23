@@ -20,9 +20,13 @@ function iosTick() {
   iosLabel.click();
 }
 
+// App Android (pucheroapp): vibración nativa con el motor háptico del móvil.
+const native = typeof window !== 'undefined' ? (window as { PucheroNative?: { vibrate(p: string): void } }).PucheroNative : undefined;
+
 function buzz(pattern: number | number[]) {
   try {
-    if (canVibrate) navigator.vibrate(pattern);
+    if (native) native.vibrate(String(pattern));
+    else if (canVibrate) navigator.vibrate(pattern);
     else if (isIOS) {
       const n = Array.isArray(pattern) ? Math.ceil(pattern.length / 2) : 1;
       for (let i = 0; i < n; i++) setTimeout(iosTick, i * 90);

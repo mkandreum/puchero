@@ -12,6 +12,7 @@
     "dev:client": "node scripts/build-client.mjs --watch",
     "dev:server": "tsx watch --env-file-if-exists=.env src/server/index.ts",
     "build": "node scripts/build-client.mjs && node scripts/build-server.mjs",
+    "build:client": "node scripts/build-client.mjs",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
