@@ -22,7 +22,7 @@ Cuentas con email y contraseña (bcrypt + JWT, el mismo patrón que XyonWork). A
 
 El súper cambia según la comida: **desayuno** (avena, fruta, yogur, tostadas), **comida**, **merienda** (fruta, yogur, frutos secos) y **cena**. Los alimentos con alérgenos marcados no aparecen.
 
-La app Android vive en [mkandreum/pucheroapp](https://github.com/mkandreum/pucheroapp): empaqueta esta misma web (`API_BASE=https://puchero.xyoncloud.win`) y llama a este servidor.
+La app Android nativa (Kotlin + Jetpack Compose, mismo diseño) vive en [mkandreum/pucheroapp](https://github.com/mkandreum/pucheroapp) y usa esta misma API, así que la cuenta y la racha se comparten.
 
 ## API
 
