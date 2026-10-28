@@ -19,8 +19,12 @@ export interface Recipe {
   /** Cantidad de cada ingrediente (mismo orden que ingredients) para `servings` personas */
   amounts: string[];
   servings: number;
+  /** Por persona */
   kcal: number;
   protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   minutes: number;
   source: 'ia' | 'local';
 }
@@ -64,6 +68,9 @@ export interface Profile {
   reminders: Reminders;
   /** Vasos de agua al día */
   waterGoal: number;
+  /** Objetivo diario de energía y proteína */
+  kcalGoal: number;
+  proteinGoal: number;
 }
 
 export interface Session {
@@ -92,6 +99,8 @@ export interface TodayData {
   week: DayStatus[];
   meals: Meal[];
   water: number;
+  /** Lo que llevas comido hoy (por persona) */
+  totals: { kcal: number; protein: number; carbs: number; fat: number; fiber: number };
   /** Comodines que quedan esta semana (salvan un día sin cocinar) */
   freezes: number;
   /** Lo planificado para hoy */
@@ -135,6 +144,9 @@ export interface DaySummary {
   letter: string;
   kcal: number;
   protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
   meals: number;
   water: number;
 }
@@ -148,6 +160,9 @@ export interface Summary {
   greens: number;
   kcalAvg: number;
   proteinAvg: number;
+  carbsAvg: number;
+  fatAvg: number;
+  fiberAvg: number;
   waterAvg: number;
   bySlot: Record<Slot, number>;
   topFoods: { id: string; count: number }[];

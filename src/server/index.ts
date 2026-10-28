@@ -7,7 +7,7 @@ import { slotForHour, SLOTS, type Meal, type Slot } from '../shared/types';
 import { aiEnabled, makeRecipe, scanFridge } from './ai';
 import { cleanShopping, generatePlan, readPlan, shoppingFromPlan } from './plan';
 import { initPush, startReminders, vapidPublicKey } from './push';
-import { achievementsOf, summaryOf } from './stats';
+import { achievementsOf, nutrientsOf, summaryOf } from './stats';
 import {
   checkPassword, hashPassword, isGoal, isSkill, normalizeEmail, PASSWORD_MAX, PASSWORD_MIN, rateLimit, readReminders,
   requireAuth, signSession, toProfile, validEmail, type Authed
@@ -75,6 +75,9 @@ const toMeal = (m: any): Meal => ({
   slot: m.slot,
   source: m.source === 'ia' ? 'ia' : 'local',
   createdAt: m.createdAt.toISOString(),
+  carbs: nutrientsOf(m).carbs,
+  fat: nutrientsOf(m).fat,
+  fiber: nutrientsOf(m).fiber,
   amounts: m.amounts?.length === m.ingredients.length ? m.amounts : amountsFor(m.ingredients, m.servings ?? 1),
   servings: m.servings ?? 1,
   favorite: m.favorite ?? false,
@@ -177,6 +180,8 @@ app.put('/api/me', auth, a(async (req, res) => {
   const name = cleanName(b.name);
   const servings = Number.isInteger(b.servings) && b.servings >= 1 && b.servings <= 12 ? b.servings : undefined;
   const waterGoal = Number.isInteger(b.waterGoal) && b.waterGoal >= 4 && b.waterGoal <= 16 ? b.waterGoal : undefined;
+  const kcalGoal = Number.isInteger(b.kcalGoal) && b.kcalGoal >= 1000 && b.kcalGoal <= 4500 ? b.kcalGoal : undefined;
+  const proteinGoal = Number.isInteger(b.proteinGoal) && b.proteinGoal >= 30 && b.proteinGoal <= 250 ? b.proteinGoal : undefined;
   const u = await prisma.user.update({
     where: { id: uid(req) },
     data: {
@@ -187,6 +192,8 @@ app.put('/api/me', auth, a(async (req, res) => {
       ...(name ? { name } : {}),
       ...(servings ? { servings } : {}),
       ...(waterGoal ? { waterGoal } : {}),
+      ...(kcalGoal ? { kcalGoal } : {}),
+      ...(proteinGoal ? { proteinGoal } : {}),
       ...(b.reminders && typeof b.reminders === 'object' ? { reminders: readReminders(b.reminders) as object } : {}),
       ...(isGoal(b.goal) ? { goal: b.goal } : {}),
       ...(isSkill(b.skill) ? { skill: b.skill } : {}),
@@ -223,6 +230,13 @@ app.get('/api/today', auth, a(async (req, res) => {
     week: weekOf(today, counts, info.frozen),
     meals: todays.map(toMeal),
     water: water.get(today) ?? 0,
+    totals: todays.reduce(
+      (t, m) => {
+        const n = nutrientsOf(m);
+        return { kcal: t.kcal + n.kcal, protein: t.protein + n.protein, carbs: t.carbs + n.carbs, fat: t.fat + n.fat, fiber: t.fiber + n.fiber };
+      },
+      { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    ),
     freezes: info.freezes,
     plan: (plan?.items ?? [])
       .filter((i) => i.date === today)
@@ -316,6 +330,9 @@ app.post('/api/meals', auth, a(async (req, res) => {
       kcal: int(b.kcal, 5000),
       protein: int(b.protein, 500),
       minutes: int(b.minutes, 300),
+      carbs: int(b.carbs, 1000),
+      fat: int(b.fat, 1000),
+      fiber: int(b.fiber, 200),
       source: b.source === 'ia' ? 'ia' : 'local',
       favorite: b.favorite === true,
       slot: SLOTS.includes(b.slot) ? b.slot : slotForHour(localHour(new Date()))

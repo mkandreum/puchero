@@ -99,6 +99,17 @@ export function Yo({ profile, onChange, onLogout, toast }: Props) {
           </div>
         </div>
 
+        <div className="yo-steppers">
+          <div>
+            <p className="mono" style={{ margin: '30px 0 12px' }}>Energía al día</p>
+            <Stepper value={profile.kcalGoal} min={1200} max={4000} step={100} onChange={(n) => onChange({ ...profile, kcalGoal: n })} label={(n) => `${n} kcal`} />
+          </div>
+          <div>
+            <p className="mono" style={{ margin: '30px 0 12px' }}>Proteína al día</p>
+            <Stepper value={profile.proteinGoal} min={40} max={200} step={5} onChange={(n) => onChange({ ...profile, proteinGoal: n })} label={(n) => `${n} g`} />
+          </div>
+        </div>
+
         <ReminderSettings profile={profile} onChange={onChange} toast={toast} />
 
         <p className="mono" style={{ margin: '30px 0 12px' }}>En la cocina soy</p>

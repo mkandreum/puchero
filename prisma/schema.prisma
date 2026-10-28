@@ -31,6 +31,8 @@ model User {
   /// { enabled, times: { desayuno: "08:30", ... } }
   reminders    Json?
   waterGoal    Int      @default(8)
+  kcalGoal     Int      @default(2000)
+  proteinGoal  Int      @default(80)
   /// Plan de la semana { weekStart, items: [...] }
   plan         Json?
   /// Lista de la compra [{ id, label?, amount?, done }]
@@ -88,6 +90,9 @@ model Meal {
   kcal        Int
   protein     Int
   minutes     Int
+  carbs       Int      @default(0)
+  fat         Int      @default(0)
+  fiber       Int      @default(0)
   slot        String
   source      String   @default("local")
   createdAt   DateTime @default(now())

@@ -1,3 +1,4 @@
+import { NUTRITION } from './nutrition';
 import type { Slot } from './types';
 
 export type Category = 'verdura' | 'proteina' | 'base' | 'fruta' | 'cereal' | 'lacteo' | 'despensa';
@@ -13,6 +14,10 @@ export interface Ingredient {
   kcal: number;
   /** gramos de proteína por ración aproximada */
   protein: number;
+  /** hidratos, grasas y fibra (g) de una ración */
+  carbs: number;
+  fat: number;
+  fiber: number;
   /** ración por persona */
   qty: number;
   unit: Unit;
@@ -22,12 +27,23 @@ export interface Ingredient {
   allergens?: string[];
 }
 
+type Raw = Omit<Ingredient, 'carbs' | 'fat' | 'fiber'>;
+
 const I = (
   id: string, name: string, cat: Category, kcal: number, protein: number,
-  qty: number, unit: Unit, color: FoodColor, extra: Partial<Ingredient> = {}
-): Ingredient => ({ id, name, cat, kcal, protein, qty, unit, color, ...extra });
+  qty: number, unit: Unit, color: FoodColor, extra: Partial<Raw> = {}
+): Raw => ({ id, name, cat, kcal, protein, qty, unit, color, ...extra });
 
-export const INGREDIENTS: Ingredient[] = [
+/** kcal, proteína, hidratos, grasa y fibra de una ración, a partir de la tabla por 100 g. */
+const withNutrition = (i: Raw): Ingredient => {
+  const n = NUTRITION[i.id];
+  if (!n) return { ...i, carbs: 0, fat: 0, fiber: 0 };
+  const k = n[5] / 100;
+  const r = (v: number) => Math.round(v * k);
+  return { ...i, kcal: r(n[0]), protein: r(n[1]), carbs: r(n[2]), fat: r(n[3]), fiber: Math.round(n[4] * k * 10) / 10 };
+};
+
+const RAW: Raw[] = [
   // Verdura
   I('brocoli', 'Brócoli', 'verdura', 35, 3, 150, 'g', 'verde', { green: true }),
   I('espinaca', 'Espinacas', 'verdura', 25, 3, 80, 'g', 'verde', { green: true }),
@@ -59,7 +75,7 @@ export const INGREDIENTS: Ingredient[] = [
   I('cerdo', 'Cerdo', 'proteina', 240, 25, 150, 'g', 'marron'),
   I('bacon', 'Bacon', 'proteina', 160, 10, 40, 'g', 'rojo'),
   I('alubias', 'Alubias', 'proteina', 140, 9, 120, 'g', 'marron'),
-  I('lentejas', 'Lentejas', 'proteina', 150, 11, 70, 'g', 'marron'),
+  I('lentejas', 'Lentejas', 'proteina', 150, 11, 150, 'g', 'marron'),
   I('falafel', 'Falafel', 'proteina', 180, 7, 4, 'ud', 'marron'),
   // Base
   I('arroz', 'Arroz', 'base', 200, 4, 80, 'g', 'blanco'),
@@ -113,6 +129,8 @@ export const INGREDIENTS: Ingredient[] = [
   I('jengibre', 'Jengibre', 'despensa', 5, 0, 5, 'g', 'amarillo'),
   I('guindilla', 'Guindilla', 'despensa', 5, 0, 1, 'ud', 'rojo')
 ];
+
+export const INGREDIENTS: Ingredient[] = RAW.map(withNutrition);
 
 export const BY_ID: Record<string, Ingredient> = Object.fromEntries(INGREDIENTS.map((i) => [i.id, i]));
 

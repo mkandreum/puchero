@@ -69,7 +69,7 @@ export function App() {
     api.today().then(setToday).catch(() =>
       setToday(
         (prev) =>
-          prev ?? { date: new Date().toISOString().slice(0, 10), challenge: 'Mete algo verde en cada comida de hoy.', streak: 0, best: 0, total: 0, week: [], meals: [], water: 0, freezes: 1, plan: [] }
+          prev ?? { date: new Date().toISOString().slice(0, 10), challenge: 'Mete algo verde en cada comida de hoy.', streak: 0, best: 0, total: 0, week: [], meals: [], water: 0, totals: { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }, freezes: 1, plan: [] }
       )
     );
   }, []);

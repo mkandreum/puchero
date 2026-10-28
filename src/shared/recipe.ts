@@ -8,12 +8,16 @@ export { joinEs };
 
 const lower = (s: string) => s.toLowerCase();
 
-/** kcal y proteína por persona (la despensa, la sal y las bebidas sin calorías no cuentan como plato). */
+/** Nutrientes de una ración por persona (la despensa y las especias no cuentan como plato). */
 export function macros(ids: string[], minutes?: number) {
   const its = ids.map((id) => BY_ID[id]).filter((i) => i && i.cat !== 'despensa');
+  const sum = (f: (i: (typeof its)[number]) => number) => its.reduce((s, i) => s + f(i), 0);
   return {
-    kcal: its.reduce((s, i) => s + i.kcal, 0),
-    protein: its.reduce((s, i) => s + i.protein, 0),
+    kcal: sum((i) => i.kcal),
+    protein: sum((i) => i.protein),
+    carbs: sum((i) => i.carbs),
+    fat: sum((i) => i.fat),
+    fiber: Math.round(sum((i) => i.fiber)),
     minutes: minutes ?? Math.min(45, 8 + its.length * 4)
   };
 }
@@ -60,7 +64,7 @@ export function recipeFromMatch(m: Match, dislikes: string[] = [], servings = 1)
   if (drinks.length) steps.push(`Para beber: ${joinEs(drinks.map((id) => lower(nameOf(id))))}.`);
 
   const ingredients = [...new Set([...m.core, ...m.extras, ...m.leftover, ...m.free])];
-  const { kcal, protein } = macros(ingredients);
+  const { kcal, protein, carbs, fat, fiber } = macros(ingredients);
   const hated = ingredients.some((id) => dislikes.includes(id));
   return {
     title: resolveName(m),
@@ -72,6 +76,9 @@ export function recipeFromMatch(m: Match, dislikes: string[] = [], servings = 1)
     servings,
     kcal,
     protein,
+    carbs,
+    fat,
+    fiber,
     minutes: m.dish.minutes,
     source: 'local'
   };

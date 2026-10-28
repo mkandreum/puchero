@@ -126,6 +126,9 @@ export async function makeRecipe(ids: string[], profile: Profile, slot: Slot, se
       servings,
       kcal: m.kcal,
       protein: m.protein,
+      carbs: m.carbs,
+      fat: m.fat,
+      fiber: m.fiber,
       minutes: Number.isFinite(minutes) && minutes > 0 && minutes < 120 ? Math.round(minutes) : m.minutes,
       source: 'ia'
     };

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { foodImg } from '../../shared/ingredients';
 import { SLOT_LABEL, SLOTS as SLOT_ORDER, type Meal, type PlanItem, type Profile, type Slot, type TodayData } from '../../shared/types';
+import { GoalBar, MacroSplit } from '../components/Nutrition';
 import { IconArrow, IconDrop, IconFlame, IconMinus, IconSnow, IconThumb } from '../components/Icons';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
@@ -27,6 +28,10 @@ interface Props {
 }
 
 /** Vasos de agua del día: un toque llena el siguiente. */
+function MacroTitle() {
+  return <p className="mono" style={{ color: 'var(--ink)' }}>Hoy llevas</p>;
+}
+
 function Water({ glasses, goal, onChange, toast }: { glasses: number; goal: number; onChange: (n: number) => void; toast: (m: string) => void }) {
   const [pop, setPop] = useState<number | null>(null);
   const change = async (delta: number) => {
@@ -128,6 +133,16 @@ export function Hoy({ data, profile, onCook, onCookPlan, onWater, onRated, toast
               A la cazuela <IconArrow width={20} height={20} />
             </button>
           </div>
+
+          {data && data.meals.length > 0 && (
+            <div className="card today-n">
+              <MacroTitle />
+              <GoalBar label="Energía" value={data.totals.kcal} goal={profile.kcalGoal} unit="kcal" />
+              <GoalBar label="Proteína" value={data.totals.protein} goal={profile.proteinGoal} unit="g" />
+              <MacroSplit n={data.totals} />
+              <p className="mono" style={{ marginTop: 10, textTransform: 'none', letterSpacing: '.02em' }}>Fibra: {data.totals.fiber} g · por persona</p>
+            </div>
+          )}
 
           {data && <Water glasses={data.water} goal={profile.waterGoal} onChange={onWater} toast={toast} />}
         </div>

@@ -1,6 +1,6 @@
 // Comprobaciones del recetario: ids válidos, platos cocinables y combinaciones de ejemplo.
 // Uso: npx tsx scripts/check-dishes.ts
-import { comboFor, matchDish, suggestDishes, surpriseCombo } from '../src/shared/chef';
+import { comboFor, matchDish, substitutes, suggestDishes, surpriseCombo } from '../src/shared/chef';
 import { DISHES } from '../src/shared/dishes';
 import { BY_ID } from '../src/shared/ingredients';
 import { localRecipe } from '../src/shared/recipe';
@@ -68,5 +68,27 @@ for (const slot of SLOTS) for (let i = 0; i < 40; i++) {
     if (a.some((x) => ['gluten', 'lactosa', 'huevo'].includes(x)) || id === 'brocoli' || id === 'pollo') fail(`combo ${slot} con "${id}" prohibido`);
   }
 }
+// Sustituciones: cada alternativa debe dar un plato válido y respetar alergias
+let subs = 0;
+for (const d of DISHES) {
+  const ids = comboFor(d, { allergies: ['gluten'], dislikes: ['brocoli'] });
+  if (!ids) continue;
+  for (const id of ids) {
+    const sub = substitutes(ids, id, d.slots[0], { allergies: ['gluten'], dislikes: ['brocoli'] });
+    for (const alt of sub.alternatives) {
+      subs++;
+      if (ids.includes(alt)) fail(`${d.id}: ${id} → ${alt} ya está en el plato`);
+      if ((BY_ID[alt].allergens ?? []).includes('gluten') || alt === 'brocoli') fail(`${d.id}: sustituto prohibido ${alt}`);
+      const swapped = ids.map((x) => (x === id ? alt : x));
+      const r = localRecipe(swapped, [], 1, d.slots[0]);
+      if (!r.title || r.steps.length < 2) fail(`${d.id}: ${id} → ${alt} no da receta`);
+    }
+  }
+}
+console.log(`\n${subs} sustituciones comprobadas`);
+const pollo = substitutes(['pollo', 'lechuga', 'queso'], 'pollo', 'comida', { pantry: ['ternera'] });
+console.log('  pollo → ', pollo.alternatives.join(', '), pollo.removable ? '(se puede quitar)' : '(imprescindible)');
+const queso = substitutes(['pollo', 'lechuga', 'queso'], 'queso', 'comida');
+console.log('  queso → ', queso.alternatives.join(', ') || '—', queso.removable ? '(se puede quitar)' : '(imprescindible)');
 console.log(bad ? `\n${bad} problemas` : '\nTodo en orden ✓');
 process.exit(bad ? 1 : 0);

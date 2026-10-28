@@ -52,7 +52,9 @@ export function toProfile(u: User): Profile {
     pantry: u.pantry,
     servings: u.servings,
     reminders: readReminders(u.reminders),
-    waterGoal: u.waterGoal
+    waterGoal: u.waterGoal,
+    kcalGoal: u.kcalGoal,
+    proteinGoal: u.proteinGoal
   };
 }
 

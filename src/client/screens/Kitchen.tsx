@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { amountsFor, BY_ID, foodImg, isAllergic, MAX_IN_POT, searchIngredients, SHELVES, type Category } from '../../shared/ingredients';
 import { SLOTS, type Profile, type Recipe, type Slot } from '../../shared/types';
-import { suggestDishes } from '../../shared/chef';
+import { substitutes, suggestDishes } from '../../shared/chef';
 import { Cazuela } from '../components/Cazuela';
 import { CookMode } from '../components/CookMode';
+import { MacroSplit } from '../components/Nutrition';
 import { IconArrow, IconCheck, IconHeart, IconSearch, IconShare, IconTimer, IconX } from '../components/Icons';
 import { Stepper } from '../components/Stepper';
 import { shareRecipe } from '../lib/shareCard';
@@ -68,10 +69,37 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved
   const stirRef = useRef({ total: 0, angle: 0 });
 
   // Si "Sorpréndeme" rellena la cazuela desde fuera, vuelve a la fase de elegir.
+  const skipReset = useRef(false);
+  const [swapping, setSwapping] = useState(false);
   useEffect(() => {
+    if (skipReset.current) {
+      skipReset.current = false;
+      return;
+    }
     if (phase === 'plato' && cart.length && recipe && cart.join() !== recipe.ingredients.join()) reset(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cart]);
+
+  /** "No tengo X": cambia un ingrediente (o lo quita) y vuelve a escribir la receta. */
+  const substitute = async (oldId: string, newId: string | null) => {
+    if (!recipe || swapping) return;
+    const ids = recipe.ingredients.flatMap((id) => (id !== oldId ? [id] : newId ? [newId] : []));
+    if (ids.length < 2) {
+      haptic.error();
+      return toast('Con menos de 2 ingredientes no hay plato.');
+    }
+    haptic.drop();
+    skipReset.current = true;
+    setCart(ids);
+    setSwapping(true);
+    try {
+      const r = await api.recipe(ids, dislikes, slot, recipe.servings);
+      setRecipe(r);
+      toast(newId ? `Hecho: ${BY_ID[newId].name.toLowerCase()} en vez de ${BY_ID[oldId].name.toLowerCase()}` : `Sin ${BY_ID[oldId].name.toLowerCase()}`);
+    } finally {
+      setSwapping(false);
+    }
+  };
 
   const add = (id: string) => {
     if (cart.includes(id)) return;
@@ -389,7 +417,7 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved
       )}
 
       {phase === 'plato' && recipe && (
-        <Plato recipe={recipe} setRecipe={setRecipe} dislikes={dislikes} saving={saving} replay={!!replay} onEat={eat} onAgain={() => reset()} toast={toast} />
+        <Plato recipe={recipe} setRecipe={setRecipe} profile={profile} slot={slot} swapping={swapping} onSubstitute={substitute} saving={saving} replay={!!replay} onEat={eat} onAgain={() => reset()} toast={toast} />
       )}
     </div>
   );
@@ -398,7 +426,10 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved
 function Plato({
   recipe,
   setRecipe,
-  dislikes,
+  profile,
+  slot,
+  swapping,
+  onSubstitute,
   saving,
   replay,
   onEat,
@@ -407,13 +438,22 @@ function Plato({
 }: {
   recipe: Recipe;
   setRecipe: (r: Recipe) => void;
-  dislikes: string[];
+  profile: Profile;
+  slot: Slot;
+  swapping: boolean;
+  onSubstitute: (oldId: string, newId: string | null) => void;
   saving: boolean;
   replay: boolean;
   onEat: (favorite: boolean) => void;
   onAgain: () => void;
   toast: (msg: string) => void;
 }) {
+  const dislikes = profile.dislikes;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const sub = useMemo(
+    () => (openId ? substitutes(recipe.ingredients, openId, slot, { allergies: profile.allergies, dislikes: profile.dislikes, pantry: profile.pantry }) : null),
+    [openId, recipe.ingredients, slot, profile.allergies, profile.dislikes, profile.pantry]
+  );
   const [fav, setFav] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -474,18 +514,44 @@ function Plato({
             <div><b>{recipe.protein}g</b><p className="mono">proteína</p></div>
             <div><b>{recipe.minutes}'</b><p className="mono">minutos</p></div>
           </div>
+          <div>
+            <MacroSplit n={recipe} />
+            <p className="mono" style={{ marginTop: 10, textTransform: 'none', letterSpacing: '.02em' }}>
+              Fibra: {recipe.fiber} g · Valores aproximados por persona
+            </p>
+          </div>
 
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <p className="mono">Ingredientes</p>
               <Stepper tone="light" value={servings} min={1} max={12} onChange={setServings} label={(n) => `${n} ${n === 1 ? 'persona' : 'personas'}`} />
             </div>
-            <ul className="ings">
+            <ul className={`ings${swapping ? ' busy' : ''}`}>
               {recipe.ingredients.map((id, i) => (
-                <li key={id}>
-                  <img src={foodImg(id)} alt="" />
-                  <span>{BY_ID[id]?.name}</span>
-                  <b key={recipe.amounts[i]}>{recipe.amounts[i]}</b>
+                <li key={id} className={openId === id ? 'open' : ''}>
+                  <button className="ing-btn" aria-expanded={openId === id} aria-label={`${BY_ID[id]?.name}: cambiar o quitar`} onClick={() => { haptic.tap(); setOpenId(openId === id ? null : id); }}>
+                    <img src={foodImg(id)} alt="" />
+                    <span>{BY_ID[id]?.name}</span>
+                    <b key={recipe.amounts[i]}>{recipe.amounts[i]}</b>
+                  </button>
+                  {openId === id && sub && (
+                    <div className="sub" role="group" aria-label={`Sin ${BY_ID[id]?.name}`}>
+                      <p className="mono">¿No tienes {BY_ID[id]?.name.toLowerCase()}?</p>
+                      <div className="sub-row">
+                        {sub.alternatives.map((alt) => (
+                          <button key={alt} className="sub-chip" onClick={() => { setOpenId(null); onSubstitute(id, alt); }}>
+                            <img src={foodImg(alt)} alt="" /> {BY_ID[alt].name}
+                          </button>
+                        ))}
+                        {sub.removable && (
+                          <button className="sub-chip quit" onClick={() => { setOpenId(null); onSubstitute(id, null); }}>
+                            Quitar
+                          </button>
+                        )}
+                        {!sub.alternatives.length && !sub.removable && <span className="sub-none">Es lo que hace este plato: sin eso, mejor otra receta.</span>}
+                      </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

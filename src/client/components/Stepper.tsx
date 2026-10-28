@@ -8,6 +8,7 @@ export function Stepper({
   max,
   onChange,
   label,
+  step = 1,
   tone = 'dark'
 }: {
   value: number;
@@ -15,6 +16,7 @@ export function Stepper({
   max: number;
   onChange: (n: number) => void;
   label: (n: number) => string;
+  step?: number;
   tone?: 'dark' | 'light';
 }) {
   const set = (n: number) => {
@@ -24,13 +26,13 @@ export function Stepper({
   };
   return (
     <div className={`stepper ${tone}`} role="group" aria-label={label(value)}>
-      <button type="button" aria-label="Menos" disabled={value <= min} onClick={() => set(value - 1)}>
+      <button type="button" aria-label="Menos" disabled={value <= min} onClick={() => set(value - step)}>
         <IconMinus width={18} height={18} />
       </button>
       <span key={value} className="stepper-v">
         {label(value)}
       </span>
-      <button type="button" aria-label="Más" disabled={value >= max} onClick={() => set(value + 1)}>
+      <button type="button" aria-label="Más" disabled={value >= max} onClick={() => set(value + step)}>
         <IconPlus width={18} height={18} />
       </button>
     </div>

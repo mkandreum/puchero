@@ -603,11 +603,208 @@ export const DISHES: Dish[] = [
     'Saltea primero las más duras (zanahoria, brócoli) 4 min a fuego fuerte.',
     'Añade las blandas y saltea 3 min más.',
     '?Termina con {x}.'
-  ], ['rapido', 'vegetariano', 'ligero'])
+  ], ['rapido', 'vegetariano', 'ligero']),
+
+  // ── Ampliación: desayunos salados ────────────────────────
+  d('tostada-salmon', 'Tostada de salmón', 'dmn', [g(...BREAD), g('salmon')], ['aguacate', 'queso', 'pepino', 'limon', 'tomate', 'cebolla', 'huevo'], 7, [
+    'Tuesta el pan 2 min.',
+    '?Prepara {x}: úntalo o córtalo fino.',
+    'Reparte el salmón sobre el pan.',
+    'Termina con unas gotas de limón y pimienta si tienes.'
+  ], ['rapido', 'proteico']),
+  d('tostada-huevo-bacon', 'Tostada con huevo y bacon', 'd', [g(...LOAF), g('huevo'), g('bacon')], ['tomate', 'queso', 'aguacate', 'champinon'], 12, [
+    'Dora el bacon en la sartén 4 min, sin aceite, hasta que esté crujiente.',
+    'En la misma sartén haz el huevo a la plancha 2 min.',
+    'Tuesta el pan 2 min.',
+    '?Añade {x}.',
+    'Monta la tostada con el bacon y el huevo encima.'
+  ], ['rapido', 'proteico']),
+  d('tostada-champis', 'Tostada de champiñones', 'dmn', [g(...LOAF), g('champinon')], ['ajo', 'queso', 'huevo', 'espinaca', 'bacon', 'cebolla', 'tomate'], 12, [
+    'Lamina los champiñones.',
+    'Saltéalos 6 min a fuego fuerte hasta que se doren, con el ajo si hay.',
+    '?Añade {x} y saltea 2 min.',
+    'Tuesta el pan 2 min y reparte los champiñones por encima.'
+  ], ['rapido', 'vegetariano']),
+  d('aguacate-huevo', 'Aguacate al horno con huevo', 'dcn', [g('aguacate'), g('huevo')], ['bacon', 'tomate', 'queso', 'cebolla', 'limon', 'guindilla', 'pan'], 18, [
+    'Calienta el horno a 200 °C.',
+    'Parte el aguacate por la mitad y quita el hueso; agranda un poco el hueco.',
+    'Casca un huevo en cada mitad y sazona.',
+    'Hornea 12 min hasta que la clara cuaje.',
+    '?Sirve con {x}.'
+  ], ['proteico', 'ligero']),
+  d('bocadillo-tortilla', 'Bocadillo de tortilla de patata', 'mn', [g(...LOAF), g('patata'), g('huevo')], ['cebolla', 'pimiento', 'queso', 'tomate', 'lechuga'], 30, [
+    'Pocha la patata en láminas 12 min y mézclala con el huevo batido.',
+    'Cuaja la tortilla 3 min por lado.',
+    'Abre el pan y úntalo con un poco de tomate si hay.',
+    '?Añade {x}.',
+    'Rellena el pan con la tortilla templada.'
+  ], ['proteico']),
+  d('migas', 'Migas', 'dcn', [g(...LOAF), g('ajo')], ['bacon', 'pimiento', 'huevo', 'uvas', 'guindilla', 'cebolla', 'tomate'], 20, [
+    'Desmenuza el pan duro en trozos pequeños y humedécelo con un chorrito de agua y sal. Déjalo 10 min.',
+    'Dora el ajo y el bacon si lo hay, 3 min.',
+    'Añade el pan y saltea 8 min removiendo, hasta que quede suelto y dorado.',
+    '?Sirve con {x}.'
+  ], ['cuchara']),
+
+  // ── Ampliación: meriendas de las de toda la vida ─────────
+  d('pan-chocolate', 'Pan con chocolate', 'dm', [g(...LOAF), g('chocolate')], ['platano', 'frutos', 'mantequilla', 'fresa', 'coco'], 5, [
+    'Corta el pan y ábrelo.',
+    'Reparte el chocolate en onzas o rallado; si lo tuestas 2 min en el horno se derrite solo.',
+    '?Añade {x}.'
+  ], ['dulce', 'rapido', 'vegetariano']),
+  d('galletas-leche', 'Galletas con leche', 'dm', [g('galletas'), g('leche')], ['platano', 'miel', 'chocolate', 'cafe', 'frutos'], 3, [
+    'Calienta la leche 1 min o sírvela fría.',
+    'Acompáñala con las galletas.',
+    '?Añade {x}.'
+  ], ['dulce', 'rapido', 'vegetariano']),
+  d('platano-chocolate', 'Plátano con chocolate', 'm', [g('platano'), g('chocolate')], ['frutos', 'coco', 'miel', 'yogur', 'avena'], 5, [
+    'Corta el plátano en rodajas gruesas.',
+    'Derrite el chocolate 30 segundos en el microondas o al baño maría.',
+    'Moja las rodajas en el chocolate.',
+    '?Espolvorea {x} por encima.'
+  ], ['dulce', 'rapido', 'vegetariano']),
+  d('sandia-queso', 'Sandía con queso', 'mn', [g('sandia', 'melon'), g('queso')], ['aceitunas', 'frutos', 'miel', 'pepino', 'limon'], 5, [
+    'Corta la fruta en dados o cuñas.',
+    'Corta el queso en cubos del mismo tamaño.',
+    'Mézclalo todo en un plato y sirve bien frío.',
+    '?Termina con {x}.'
+  ], ['rapido', 'frio', 'ligero', 'vegetariano']),
+  d('smoothie-bowl', 'Bol de batido', 'dm', [gm(2, ...FRUIT), g('yogur', 'leche')], ['avena', 'frutos', 'coco', 'miel', 'chocolate', 'galletas'], 7, [
+    'Tritura la fruta con el yogur o la leche hasta que quede espesa, casi como un helado.',
+    'Sírvela en un bol.',
+    '?Decora con {x}.',
+    'Cómetela con cuchara y enseguida, antes de que se derrita.'
+  ], ['dulce', 'rapido', 'frio', 'vegetariano']),
+  d('arroz-leche', 'Arroz con leche', 'm', [g('arroz'), g('leche')], ['miel', 'coco', 'chocolate', 'frutos', 'naranja', 'limon', 'manzana'], 40, [
+    'Cuece el arroz 5 min en agua y escúrrelo.',
+    'Ponlo con la leche a fuego suave, removiendo a menudo.',
+    'Cuece 25 min hasta que quede cremoso.',
+    '?Endúlzalo con {x} fuera del fuego.',
+    'Sírvelo templado o frío.'
+  ], ['dulce', 'cuchara', 'vegetariano']),
+  d('bocadillo', 'Bocadillo de {1}', 'mcn', [g('baguette'), g('pollo', 'atun', 'queso', 'huevo', 'bacon', 'ternera', 'cerdo')], ['lechuga', 'tomate', 'aguacate', 'cebolla', 'pimiento', 'aceitunas', 'pepino'], 12, [
+    'Si el relleno es carne o huevo, cocínalo en la plancha 5 min.',
+    'Abre la barra por la mitad y tuéstala 2 min.',
+    '?Corta {x} fino.',
+    'Rellena el bocadillo y córtalo en dos.'
+  ], ['proteico']),
+
+  // ── Ampliación: comidas y cenas ──────────────────────────
+  d('salmon-verduras', 'Salmón al horno con verduras', 'cn', [g('salmon'), g('zanahoria', 'brocoli', 'pimiento', 'cebolla', 'champinon', 'boniato', 'patata')], ['limon', 'ajo', 'guisantes', 'espinaca', 'tomate'], 28, [
+    'Calienta el horno a 200 °C.',
+    'Corta las verduras en trozos medianos y ásalas 12 min con aceite y sal.',
+    'Coloca el salmón encima y hornea 12 min más.',
+    '?Añade {x}.',
+    'Exprime un poco de limón al servir.'
+  ], ['ligero', 'proteico']),
+  d('ternera-champis', 'Ternera con champiñones', 'cn', [g('ternera'), g('champinon')], ['cebolla', 'ajo', 'patata', 'arroz', 'pimiento', 'pasta'], 25, [
+    'Corta la ternera en tiras y sazónala.',
+    'Márcala 3 min a fuego fuerte y resérvala.',
+    'Saltea los champiñones laminados 6 min con la cebolla si hay.',
+    'Vuelve a poner la carne 2 min.',
+    '?Sirve con {x}.'
+  ], ['proteico']),
+  d('pollo-champis', 'Pollo con champiñones', 'cn', [g('pollo'), g('champinon')], ['cebolla', 'ajo', 'arroz', 'patata', 'queso', 'espinaca', 'pasta'], 25, [
+    'Dora el pollo troceado 6 min.',
+    'Añade los champiñones laminados y la cebolla si hay, y saltea 6 min.',
+    'Tapa y cuece 6 min a fuego suave.',
+    '?Sirve con {x}.'
+  ], ['proteico']),
+  d('cerdo-pimientos', 'Cerdo con pimientos', 'cn', [g('cerdo'), g('pimiento')], ['cebolla', 'ajo', 'patata', 'arroz', 'tomate', 'champinon'], 25, [
+    'Corta el cerdo en tiras y los pimientos en tiras.',
+    'Dora la carne 6 min a fuego fuerte y resérvala.',
+    'Sofríe los pimientos con la cebolla si hay, 8 min.',
+    'Junta todo 2 min.',
+    '?Sirve con {x}.'
+  ], ['proteico']),
+  d('piperrada', 'Piperrada con huevo', 'cn', [g('tomate'), g('pimiento'), g('huevo')], ['cebolla', 'ajo', 'bacon', 'pan', 'baguette', 'atun', 'queso'], 25, [
+    'Sofríe la cebolla y el pimiento en tiras 8 min.',
+    'Añade el tomate troceado y cuece 8 min hasta que se espese.',
+    'Haz huecos y casca los huevos dentro; tapa y cuece 4 min.',
+    '?Sirve con {x}.'
+  ], ['proteico', 'vegetariano']),
+  d('pisto', 'Pisto de verduras', 'cn', [g('tomate'), g('pimiento', 'berenjena'), g('cebolla')], ['huevo', 'ajo', 'patata', 'atun', 'pan', 'baguette', 'queso'], 35, [
+    'Corta todo en dados del mismo tamaño.',
+    'Sofríe la cebolla 5 min y añade el pimiento o la berenjena 8 min.',
+    'Incorpora el tomate y cuece 15 min a fuego suave.',
+    '?Sirve con {x}.'
+  ], ['cuchara', 'vegetariano', 'ligero']),
+  d('guisantes-bacon', 'Guisantes con bacon', 'cn', [g('guisantes'), g('bacon')], ['cebolla', 'huevo', 'patata', 'ajo', 'arroz', 'zanahoria'], 20, [
+    'Dora el bacon en tiras 4 min en una cazuela.',
+    'Añade la cebolla si hay y rehoga 3 min.',
+    'Echa los guisantes con un chorrito de agua y cuece 8 min.',
+    '?Sirve con {x}.'
+  ], ['proteico']),
+  d('sopa-verduras', 'Sopa de verduras', 'cn', [gm(2, 'zanahoria', 'cebolla', 'patata', 'brocoli', 'guisantes', 'pimiento', 'champinon', 'boniato')], ['pasta', 'arroz', 'huevo', 'ajo', 'queso', 'espinaca'], 30, [
+    'Corta las verduras en dados pequeños.',
+    'Sofríelas 4 min y cúbrelas con agua.',
+    'Cuece 20 min a fuego medio.',
+    '?Añade {x} los últimos 8 min.'
+  ], ['cuchara', 'ligero', 'vegetariano']),
+  d('sopa-ajo', 'Sopa de ajo', 'cn', [g('ajo'), g(...LOAF)], ['huevo', 'bacon', 'guindilla', 'tomate'], 20, [
+    'Dora los ajos laminados 1 min en aceite, sin que se quemen.',
+    'Añade el pan en trozos y rehoga 1 min.',
+    'Cubre con agua caliente y cuece 10 min a fuego suave.',
+    '?Añade {x}.',
+    'Sirve caliente, con un huevo escalfado si quieres.'
+  ], ['cuchara', 'vegetariano']),
+  d('risotto', 'Risotto de champiñones', 'cn', [g('arroz'), g('champinon')], ['cebolla', 'ajo', 'queso', 'espinaca', 'guisantes', 'pollo'], 35, [
+    'Sofríe la cebolla picada 4 min y los champiñones 6 min.',
+    'Añade el arroz y rehoga 1 min.',
+    'Ve echando agua caliente poco a poco, removiendo, durante 16 min.',
+    '?Termina con {x}.',
+    'Reposa 2 min antes de servir: tiene que quedar cremoso.'
+  ], ['cuchara']),
+  d('pasta-gratinada', 'Pasta gratinada', 'cn', [g('pasta'), g('queso')], ['tomate', 'bacon', 'champinon', 'atun', 'ternera', 'pollo', 'espinaca', 'cebolla'], 30, [
+    'Calienta el horno a 200 °C.',
+    'Cuece la pasta 8 min (un minuto menos que el paquete).',
+    '?Saltea {x} 4 min y mézclalo con la pasta.',
+    'Pasa todo a una fuente, cúbrelo de queso y gratina 10 min.'
+  ], ['vegetariano']),
+  d('pasta-ajo', 'Pasta al ajo y aceite', 'cn', [g('pasta'), g('ajo')], ['guindilla', 'queso', 'gambas', 'bacon', 'brocoli', 'tomate', 'espinaca'], 15, [
+    'Cuece la pasta 9 min.',
+    'Dora el ajo laminado y la guindilla si hay, 2 min a fuego suave.',
+    '?Añade {x} y saltea 3 min.',
+    'Mezcla con la pasta y un cacito del agua de cocción.'
+  ], ['rapido', 'vegetariano']),
+  d('ensalada-gambas', 'Ensalada de gambas', 'cn', [g('gambas'), g('lechuga', 'aguacate', 'tomate', 'pepino')], ['limon', 'maiz', 'huevo', 'pasta', 'ajo', 'zanahoria'], 12, [
+    'Saltea las gambas 2 min con ajo a fuego fuerte y deja que se templen.',
+    'Corta la ensalada y colócala en el plato.',
+    '?Añade {x}.',
+    'Pon las gambas encima y aliña con limón y aceite.'
+  ], ['ligero', 'proteico']),
+  d('ensalada-queso-fruta', 'Ensalada de queso y fruta', 'cn', [g('queso'), g('lechuga'), g('manzana', 'pera', 'uvas', 'naranja', 'fresa', 'melocoton', 'kiwi')], ['frutos', 'miel', 'aceitunas', 'cebolla', 'tomate', 'pollo'], 10, [
+    'Lava la lechuga y trocéala.',
+    'Corta la fruta y el queso en dados.',
+    '?Añade {x}.',
+    'Aliña con aceite y sal; si tienes miel, un hilo por encima.'
+  ], ['ligero', 'rapido', 'frio', 'vegetariano']),
+  d('ensalada-patata', 'Ensalada de patata', 'cn', [g('patata'), g('huevo', 'atun', 'aceitunas')], ['cebolla', 'pimiento', 'pepino', 'maiz', 'tomate', 'limon'], 25, [
+    'Cuece la patata troceada 15 min, escúrrela y deja que se enfríe.',
+    'Cuece el huevo 10 min si lo hay.',
+    '?Pica {x} fino.',
+    'Mézclalo todo con aceite, sal y limón o vinagre.'
+  ], ['frio']),
+  d('ensaladilla', 'Ensaladilla rusa', 'cmn', [g('patata'), g('atun'), g('huevo', 'zanahoria', 'guisantes', 'aceitunas', 'pimiento')], ['maiz', 'cebolla', 'limon', 'pan', 'baguette'], 30, [
+    'Cuece la patata y la zanahoria troceadas 15 min con los guisantes los últimos 5 min.',
+    'Cuece el huevo 10 min.',
+    'Deja enfriar y mezcla con el atún escurrido.',
+    '?Añade {x}.',
+    'Aliña con aceite y sal, y déjala 30 min en la nevera antes de servir.'
+  ], ['frio'])
 ];
 
 // Los clásicos ganan a las variantes cuando encajan los dos
-for (const [id, bonus] of Object.entries({ porridge: 8, revuelto: 3, 'tortilla-patata': 4, boloñesa: 4, carbonara: 4, 'arroz-pollo': 3, 'guiso-patatas': 4, 'pollo-patatas': 3 })) {
+// Los comodines (ensaladas frías, sopas y cremas que aceptan casi todo) ceden ante el plato concreto.
+const PRIORITY: Record<string, number> = {
+  porridge: 8, revuelto: 3, 'tortilla-patata': 4, boloñesa: 4, carbonara: 4, 'arroz-pollo': 4, 'guiso-patatas': 4, 'pollo-patatas': 3,
+  'arroz-cubana': 6, risotto: 6, 'pasta-atun': 6, 'pasta-tomate': 4, 'pasta-pollo': 4, alubias: 6, lentejas: 6, 'patatas-horno': 5,
+  'huevos-rotos': 5, 'tostada-salmon': 3, 'pollo-ensalada': 5, 'pollo-ajillo': 3, salmon: 4, 'filete-patatas': 3, 'ternera-champis': 3,
+  'pollo-champis': 3, quesadilla: 4, 'bocadillo-tortilla': 3, sopa: 0,
+  'ensalada-pasta': -10, 'ensalada-arroz': -10, 'ensalada-patata': -8, 'ensalada-legumbres': -8, 'sopa-verduras': -6, 'crema-verduras': -5,
+  'arroz-verduras': -3, 'pasta-verduras': -2, 'tortilla-verduras': -3, 'pollo-verduras': -3, 'smoothie-bowl': -3, 'tosta-queso': 0
+};
+for (const [id, bonus] of Object.entries(PRIORITY)) {
   const dish = DISHES.find((x) => x.id === id);
   if (dish) dish.bonus = bonus;
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MacroSplit } from './Nutrition';
 import { BY_ID, COLOR_HEX, foodImg, type FoodColor } from '../../shared/ingredients';
 import type { DaySummary, Summary } from '../../shared/types';
 
@@ -79,6 +80,21 @@ export function WeekCharts({ data }: { data: Summary }) {
           <span className="mono">alimentos</span>
         </div>
       </div>
+      <div className="sum-tiles">
+        <div className="sum-tile">
+          <b>{data.carbsAvg}g</b>
+          <span className="mono">hidratos / día</span>
+        </div>
+        <div className="sum-tile">
+          <b>{data.fatAvg}g</b>
+          <span className="mono">grasas / día</span>
+        </div>
+        <div className="sum-tile">
+          <b>{data.fiberAvg}g</b>
+          <span className="mono">fibra / día</span>
+        </div>
+      </div>
+      <MacroSplit n={{ kcal: data.kcalAvg, protein: data.proteinAvg, carbs: data.carbsAvg, fat: data.fatAvg, fiber: data.fiberAvg }} />
       <Columns days={data.days} value={(d) => d.kcal} unit="kcal" title="Kcal por día (por persona)" />
       <Columns days={data.days} value={(d) => d.protein} unit="g" title="Proteína por día (g)" />
 

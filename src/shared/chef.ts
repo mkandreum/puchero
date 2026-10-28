@@ -190,6 +190,43 @@ export function comboFor(dish: Dish, o: ComboOptions = {}): string[] | null {
   return [...new Set([...ids, ...extras])].slice(0, MAX_IN_POT);
 }
 
+export interface Substitution {
+  /** Con qué se puede cambiar, sin romper el plato (lo de casa primero) */
+  alternatives: string[];
+  /** Se puede quitar sin que el plato deje de ser el plato */
+  removable: boolean;
+}
+
+/**
+ * "No tengo X": con qué cambiarlo. Si es un ingrediente principal, las alternativas son las
+ * del mismo grupo del plato (pollo → ternera, pan → baguette); si es un extra, otros extras
+ * de su misma clase. Lo que sobra o es especia solo se puede quitar.
+ */
+export function substitutes(ids: string[], id: string, slot: Slot, o: ComboOptions = {}): Substitution {
+  const ok = allowedBy(o);
+  const pantry = new Set(o.pantry ?? []);
+  const m = matchDish(ids, slot);
+  const cat = BY_ID[id]?.cat;
+  const fresh = (a: string) => !ids.includes(a) && ok(a) && !isFree(a);
+
+  const gi = m.chosen.findIndex((c) => c.includes(id));
+  const inCore = gi >= 0;
+  const removable =
+    inCore ? m.chosen[gi].length > (m.dish.core[gi].min ?? 1) : m.dish.id === 'generico' ? ids.length > 2 : true;
+  if (!inCore && !m.extras.includes(id) && m.dish.id !== 'generico') return { alternatives: [], removable };
+
+  // Primero las que el propio plato prevé; luego cualquiera de la misma clase si el plato sigue teniendo sentido
+  const own = inCore ? m.dish.core[gi].of.filter(fresh) : m.dish.extras.filter((a) => fresh(a) && BY_ID[a]?.cat === cat);
+  const others = inCore || m.dish.id === 'generico' ? Object.keys(BY_ID).filter((a) => BY_ID[a].cat === cat && fresh(a) && !own.includes(a)) : [];
+  const good = (a: string) => {
+    const r = matchDish(ids.map((x) => (x === id ? a : x)), slot);
+    return r.dish.id !== 'generico' && r.leftover.length <= m.leftover.length && !r.offSlot;
+  };
+  const rank = (a: string) => (pantry.has(a) ? 0 : 1);
+  const alternatives = [...own, ...others.filter(good)].sort((x, y) => rank(x) - rank(y)).slice(0, 6);
+  return { alternatives, removable };
+}
+
 export function dishesForSlot(slot: Slot, f: Filter = {}): Dish[] {
   return DISHES.filter((d) => d.slots.includes(slot) && comboFor(d, { ...f, extras: 0 }));
 }
