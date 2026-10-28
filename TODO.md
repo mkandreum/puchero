@@ -9,23 +9,22 @@ Estado a 28/10/2026. Repos: `mkandreum/puchero` (web + servidor) y `mkandreum/pu
 - [ ] Comprobar que arrancan solas las dos migraciones nuevas: `20261023120000_accounts` y `20261024090000_features`.
 - [ ] Guardar una copia de la clave de firma: `~/.android-keys/puchero-release.jks` y `puchero-keystore.properties`. Sin ella no se pueden publicar actualizaciones de la app.
 
-## 1. Recetario con sentido (lo último que pediste)
+## 1. Recetario con sentido — HECHO (28/10/2026)
 
-Ahora las recetas salen de reglas sueltas y a veces no tienen sentido (ej. "Bol de yogur con pollo, espinacas y champiñón"). Hay que pasar de "lo que cabe en la cazuela" a platos reales.
-
-- [ ] Crear un catálogo de platos reales (`src/shared/dishes.ts`) con 80–120 platos: nombre, comida (desayuno, comida, merienda, cena), ingredientes obligatorios y opcionales, ingredientes incompatibles, pasos con tiempos y etiquetas (ligero, proteico, rápido, vegetariano, sin gluten, sin lactosa…).
-- [ ] Motor que, dados los ingredientes de la cazuela, elige el plato que mejor encaja, dice qué le falta o qué sobra y propone una pequeña mejora ("añade limón y queda mejor"). Si la combinación no tiene sentido, avisarlo en vez de inventar un plato raro.
-- [ ] Reglas de coherencia por comida: nada de pollo o legumbres en el desayuno, nada de bol de yogur con carne, etc.
-- [ ] Usar ese motor en: receta local sin conexión, plan semanal (que cada comida sea un plato real y varíe), "Sorpréndeme" y la cazuela desde la nevera.
-- [ ] Prompt de la IA: pasarle el plato elegido por el motor y pedirle que lo escriba, no que lo invente desde cero. Mantener las manías, alergias, nivel, raciones y valoraciones.
-- [ ] Mismo catálogo en la app: generar `Dishes.kt` desde el de la web con un script, como ya se hace con `Catalog.kt` (`scripts/gen-catalog.ts`).
+- [x] Catálogo de 90 platos reales (`src/shared/dishes.ts`) con ingredientes obligatorios, los que le quedan bien, pasos con tiempos y etiquetas.
+- [x] Motor `src/shared/chef.ts`: elige el plato que mejor encaja con la cazuela, deja aparte lo que no pega y nombra el plato con sus ingredientes.
+- [x] Receta local, plan semanal y "Sorpréndeme" usan platos reales, sin alergias ni manías.
+- [x] La IA escribe el plato elegido por el recetario en vez de inventarlo.
+- [x] "Con lo que tienes" en la cocina y pestaña Recetas en Semana (web y app).
+- [x] Mismo recetario en la app: `scripts/gen-catalog.ts` genera `Dishes.kt`; `Chef.kt` es el port del motor, con tests (`./gradlew testDebugUnitTest`).
+- [ ] Revisar el recetario con calma: añadir platos (hay pocos desayunos salados y meriendas de verdad) y pulir pasos y nombres.
+- [ ] Probar la IA con una clave de Gemini real para ver si respeta el plato elegido.
 
 ## 2. Más funciones
 
-- [ ] "Con lo que tengo": al abrir la cocina, sugerir 3 platos que se pueden hacer ya con la nevera y qué falta para cada uno.
-- [ ] Recetario navegable por comida, etiqueta o tiempo, con favoritos.
+- [x] "Con lo que tengo" y recetario navegable (hecho). Falta: favoritos de recetas del recetario.
 - [ ] Valor nutricional más completo por plato y por día (fibra, grasas, hidratos) y objetivo diario de kcal y proteína según el perfil.
-- [ ] Sustituciones: "no tengo X" y que proponga con qué cambiarlo.
+- [ ] Sustituciones: "no tengo X" y que proponga con qué cambiarlo (el recetario ya sabe las alternativas de cada grupo).
 - [ ] Ajustar raciones guardadas y reutilizar sobras ("cena de ayer → comida de hoy").
 - [ ] Lista de la compra agrupada por pasillo y compartible por WhatsApp.
 - [ ] Notas y puntuación de 1 a 5 en cada plato.
@@ -33,7 +32,7 @@ Ahora las recetas salen de reglas sueltas y a veces no tienen sentido (ej. "Bol 
 
 ## 3. Pasar todo a la app nativa
 
-- [ ] Todo lo nuevo de la web, también en Compose y con las mismas animaciones y vibraciones.
+- [x] Recetario, sugerencias y sorpresa en Compose (APK 2.1). Falta probarlo en un móvil: se compiló y se testeó el motor, pero no se ha abierto la interfaz.
 - [ ] Regenerar los catálogos con `npx tsx ../pucheroapp/scripts/gen-catalog.ts` desde el repo `puchero`.
 - [ ] Compilar: `./gradlew assembleRelease`. Copiar el APK a `~/Escritorio/PUCHERO-<versión>-release.apk`.
 - [ ] Subirlo como release de GitHub en `pucheroapp` y enviártelo.
