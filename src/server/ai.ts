@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { amountsFor, BY_ID, INGREDIENTS, isValidIngredient } from '../shared/ingredients';
+import { matchDish } from '../shared/chef';
 import { localRecipe, macros } from '../shared/recipe';
 import type { Goal, Profile, Recipe, Skill, Slot } from '../shared/types';
 
@@ -87,11 +88,13 @@ export interface Taste {
   disliked: string[];
 }
 
-function buildPrompt(ids: string[], p: Profile, slot: Slot, servings: number, taste: Taste) {
-  const names = ids.map((id) => BY_ID[id].name).join(', ');
+function buildPrompt(ids: string[], p: Profile, slot: Slot, servings: number, taste: Taste, base: Recipe) {
+  const m = matchDish(ids, slot);
   const hated = ids.filter((id) => p.dislikes.includes(id)).map((id) => BY_ID[id].name);
+  const aside = m.leftover.map((id) => BY_ID[id].name);
   return `Eres el chef de PUCHERO, una app para gente a la que le cuesta comer bien (manías o pereza).
-Crea UN plato casero en español de España usando SOLO estos ingredientes (más aceite, sal, especias y agua): ${names}.
+El recetario ha elegido este plato: "${base.title}". Escríbelo como receta casera en español de España, fiel a ese plato, usando SOLO estos ingredientes (más aceite, sal, especias y agua): ${m.core.concat(m.extras).map((id) => BY_ID[id].name).join(', ')}.${aside.length ? ` Estos otros NO entran en el plato porque no encajan; menciónalos al final como acompañamiento aparte: ${aside.join(', ')}.` : ''}
+Borrador de pasos del recetario (mejóralo, mantén los tiempos): ${base.steps.join(' | ')}
 ${SLOT_TEXT[slot]} Para ${servings} ${servings === 1 ? 'persona' : 'personas'}. El usuario ${GOALS[p.goal]}. ${SKILLS[p.skill]}${p.allergies.length ? ` Alergias o intolerancias: ${p.allergies.join(', ')}; no añadas nada que las contenga.` : ''}${hated.length ? ` Odia: ${hated.join(', ')}. Escóndelo con una técnica concreta (rallar, triturar en salsa, gratinar...).` : ''}
 ${taste.liked.length ? `Platos que le gustaron: ${taste.liked.join('; ')}.` : ''}${taste.disliked.length ? ` Platos que NO le gustaron (evita ese estilo): ${taste.disliked.join('; ')}.` : ''}
 Tono: cercano, divertido, cero sermones. Pasos cortos y concretos (máx. 16 palabras cada uno).
@@ -102,10 +105,10 @@ Responde SOLO JSON con esta forma exacta:
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 export async function makeRecipe(ids: string[], profile: Profile, slot: Slot, servings: number, taste: Taste): Promise<Recipe> {
-  const fallback = localRecipe(ids, profile.dislikes, servings);
+  const fallback = localRecipe(ids, profile.dislikes, servings, slot);
   if (!ai) return fallback;
   try {
-    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, profile, slot, servings, taste))));
+    const json = JSON.parse(extractJson(await generate(buildPrompt(ids, profile, slot, servings, taste, fallback))));
     const steps = Array.isArray(json.steps)
       ? json.steps.map((s: unknown) => str(s, 160)).filter(Boolean).slice(0, 6)
       : [];

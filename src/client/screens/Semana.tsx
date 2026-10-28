@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { Dish } from '../../shared/dishes';
 import { BY_ID, CATEGORIES, foodImg, INGREDIENTS } from '../../shared/ingredients';
 import { SLOT_LABEL, type Plan, type PlanItem, type Profile, type ShoppingItem } from '../../shared/types';
 import { IconArrow, IconCamera, IconCart, IconCheck, IconPlus, IconSwap, IconX } from '../components/Icons';
 import { api } from '../lib/api';
 import { haptic } from '../lib/haptics';
+import { Recetas } from './Recetas';
 
-type Section = 'plan' | 'compra' | 'nevera';
+type Section = 'plan' | 'recetas' | 'compra' | 'nevera';
 
 const dayLabel = (iso: string) =>
   new Date(`${iso}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
@@ -25,10 +27,11 @@ interface Props {
   profile: Profile;
   onChange: (p: Profile) => void;
   onCookPlan: (item: PlanItem) => void;
+  onCookDish: (dish: Dish, ids: string[]) => void;
   toast: (msg: string) => void;
 }
 
-export function Semana({ profile, onChange, onCookPlan, toast }: Props) {
+export function Semana({ profile, onChange, onCookPlan, onCookDish, toast }: Props) {
   const [section, setSection] = useState<Section>('plan');
   const [plan, setPlan] = useState<Plan | null>(null);
   const [shopping, setShopping] = useState<ShoppingItem[] | null>(null);
@@ -158,6 +161,7 @@ export function Semana({ profile, onChange, onCookPlan, toast }: Props) {
         <div className="seg" role="tablist" style={{ marginTop: 22 }}>
           {([
             ['plan', 'Plan'],
+            ['recetas', 'Recetas'],
             ['compra', pending ? `Compra · ${pending}` : 'Compra'],
             ['nevera', profile.pantry.length ? `Nevera · ${profile.pantry.length}` : 'Nevera']
           ] as [Section, string][]).map(([id, label]) => (
@@ -218,6 +222,8 @@ export function Semana({ profile, onChange, onCookPlan, toast }: Props) {
             ))}
           </section>
         )}
+
+        {section === 'recetas' && <Recetas profile={profile} onCook={onCookDish} toast={toast} />}
 
         {section === 'compra' && (
           <section className="rise" key="compra">

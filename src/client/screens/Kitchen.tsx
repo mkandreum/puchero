@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { amountsFor, BY_ID, foodImg, isAllergic, MAX_IN_POT, searchIngredients, SHELVES, type Category } from '../../shared/ingredients';
 import { SLOTS, type Profile, type Recipe, type Slot } from '../../shared/types';
+import { suggestDishes } from '../../shared/chef';
 import { Cazuela } from '../components/Cazuela';
 import { CookMode } from '../components/CookMode';
 import { IconArrow, IconCheck, IconHeart, IconSearch, IconShare, IconTimer, IconX } from '../components/Icons';
@@ -213,6 +214,10 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved
   const shelves = pantryOk.length ? [{ id: 'nevera', label: 'En tu nevera', ids: pantryOk }, ...SHELVES[slot]] : SHELVES[slot];
   const current = shelves.find((s) => s.id === shelfId) ?? shelves[0];
   const searching = query.trim().length > 0;
+  const sugg = useMemo(
+    () => (pantryOk.length >= 2 ? suggestDishes(pantryOk, slot, { allergies, dislikes }, 6) : []),
+    [pantryOk.join(), slot, allergies.join(), dislikes.join()] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const shelf = (searching ? searchIngredients(query) : current.ids.map((id) => BY_ID[id])).filter((it) => !isAllergic(it.id, allergies));
 
   const changeSlot = (s: Slot) => {
@@ -304,6 +309,28 @@ export function Kitchen({ cart, setCart, slot, setSlot, profile, replay, onSaved
               </button>
             )}
           </label>
+          {!searching && cart.length === 0 && sugg.length > 0 && (
+            <div className="sugg" aria-label="Con lo que tienes">
+              <p className="mono">Con lo que tienes</p>
+              <div className="sugg-row">
+                {sugg.map((s) => (
+                  <button
+                    key={s.dish.id}
+                    className="sugg-card"
+                    onClick={() => {
+                      haptic.drop();
+                      setCart(s.ids);
+                      toast(s.missing.length ? `Te falta ${s.missing.map((id) => BY_ID[id].name.toLowerCase()).join(' y ')}: ya está en la cazuela` : '¡Tienes todo! A remover');
+                    }}
+                  >
+                    <b className="serif">{s.title}</b>
+                    <span className="thumbs">{s.ids.slice(0, 4).map((id) => <img key={id} src={foodImg(id)} alt="" />)}</span>
+                    <small>{s.missing.length ? `Falta ${s.missing.map((id) => BY_ID[id].name.toLowerCase()).join(' y ')}` : '¡Ya puedes!'} · {s.dish.minutes} min</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {!searching && (
             <div className="chips" role="tablist">
               {shelves.map((c) => (

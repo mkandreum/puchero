@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BY_ID, isAllergic, SHELVES, STARCHES } from '../shared/ingredients';
+import { surpriseCombo } from '../shared/chef';
+import type { Dish } from '../shared/dishes';
 import { slotForHour, type Meal, type PlanItem, type Profile, type Recipe, type Slot, type TodayData } from '../shared/types';
 import { Celebration } from './components/Celebration';
 import { IconCalendar, IconDice, IconFlame, IconPot, IconSun, IconUser } from './components/Icons';
@@ -150,16 +151,9 @@ export function App() {
     if (!profile) return;
     haptic.drop();
     setDiceSpin((n) => n + 1);
-    const ok = (ids: string[]) => ids.filter((id) => !profile.dislikes.includes(id) && !isAllergic(id, profile.allergies));
-    const shelves = SHELVES[slot].map((s) => ok(s.ids));
-    let choice = shelves.flatMap((ids, n) => pick(ids, n === 0 ? 1 : 2));
-    if (slot === 'comida' || slot === 'cena') {
-      const [veg, prot, base] = shelves;
-      const greens = veg.filter((id) => BY_ID[id].green);
-      const starch = base.filter((id) => STARCHES.includes(id));
-      choice = [...pick(starch.length ? starch : base, 1), ...pick(prot, 1), ...pick(greens.length ? greens : veg, 1), ...pick(veg.filter((id) => !BY_ID[id].green), 1)];
-    }
-    setCart([...new Set(choice)]);
+    const choice = surpriseCombo(slot, { pantry: profile.pantry, goal: profile.goal, allergies: profile.allergies, dislikes: profile.dislikes });
+    setCart(choice);
+    setReplay(null);
     setKitchenKey((k) => k + 1);
     setTab('cocina');
     toast('Cazuela sorpresa. ¡A remover!');
@@ -169,6 +163,15 @@ export function App() {
   const cookPlan = (it: PlanItem) => {
     setSlot(it.slot);
     setCart(it.ingredients);
+    setReplay(null);
+    setKitchenKey((k) => k + 1);
+    setTab('cocina');
+  };
+
+  /** Cocinar un plato del recetario: la cazuela se llena sola. */
+  const cookDish = (dish: Dish, ids: string[]) => {
+    if (!dish.slots.includes(slot)) setSlot(dish.slots[0]);
+    setCart(ids);
     setReplay(null);
     setKitchenKey((k) => k + 1);
     setTab('cocina');
@@ -258,7 +261,7 @@ export function App() {
             toast={toast}
           />
         )}
-        {tab === 'semana' && <Semana profile={profile} onChange={changeProfile} onCookPlan={cookPlan} toast={toast} />}
+        {tab === 'semana' && <Semana profile={profile} onChange={changeProfile} onCookPlan={cookPlan} onCookDish={cookDish} toast={toast} />}
         {tab === 'racha' && <Racha data={today} refreshKey={refreshKey} onChanged={loadToday} onRepeat={repeat} toast={toast} />}
         {tab === 'yo' && <Yo profile={profile} onChange={changeProfile} onLogout={logout} toast={toast} />}
       </main>

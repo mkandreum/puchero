@@ -115,7 +115,7 @@ export const api = {
       return await req<Recipe>('/api/recipe', json('POST', { ingredients, slot, servings }));
     } catch {
       // Sin conexión o servidor caído: la cocina sigue funcionando en local.
-      return localRecipe(ingredients, dislikes, servings);
+      return localRecipe(ingredients, dislikes, servings, slot);
     }
   },
   saveMeal: (r: Recipe, slot: Slot = slotForHour(new Date().getHours()), favorite = false) =>

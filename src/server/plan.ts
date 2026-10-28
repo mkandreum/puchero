@@ -1,6 +1,8 @@
-import { amountFor, BY_ID, isAllergic, SHELVES, STARCHES } from '../shared/ingredients';
+import { comboFor, goalBonus } from '../shared/chef';
+import { DISHES, type Dish } from '../shared/dishes';
+import { amountFor, BY_ID } from '../shared/ingredients';
 import { localRecipe } from '../shared/recipe';
-import type { Plan, PlanItem, Profile, ShoppingItem, Slot } from '../shared/types';
+import type { Plan, PlanItem, Profile, ShoppingItem } from '../shared/types';
 import { addDays, mondayOf } from './days';
 
 /** Generador con semilla: el mismo plan para la misma semana hasta que pidas otro. */
@@ -9,62 +11,40 @@ function rng(seed: number) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-/** Lo que define cada desayuno o merienda: lo demás (fruta, toppings) lo acompaña. */
-const ANCHORS: Partial<Record<Slot, string[]>> = {
-  desayuno: ['avena', 'pan', 'tortitas', 'gofre', 'bagel', 'yogur', 'huevo', 'croissant'],
-  merienda: ['yogur', 'frutos', 'pan', 'palomitas', 'queso', 'galletas', 'helado']
-};
-const TOPPINGS = ['frutos', 'miel', 'chocolate', 'mantequilla', 'queso', 'aguacate', 'tomate'];
-
 /**
- * Menú de la semana para las comidas que el usuario quiere resolver: sin alergias ni manías,
- * variado (nada se repite más de dos veces en la semana) y, a igualdad, con lo que hay en casa.
+ * Menú de la semana: cada hueco es un plato real del recetario (`shared/dishes.ts`), sin alergias
+ * ni manías, que no se repite, que usa lo que hay en la nevera cuando se puede y que sigue tu
+ * objetivo (más verde, más proteína o rapidísimo). Entre dos platos buenos decide el azar.
  */
 export function generatePlan(p: Profile, today: string, seed = Date.now()): Plan {
   const rand = rng(seed);
-  const used = new Map<string, number>();
-  const ok = (id: string) => BY_ID[id] && !isAllergic(id, p.allergies) && !p.dislikes.includes(id);
-  /** El menos usado de la lista; entre empatados, mejor si está en la nevera; si no, al azar. */
-  const choose = (ids: string[], exclude: string[] = []): string | undefined => {
-    const list = ids.filter((id) => ok(id) && !exclude.includes(id));
-    if (!list.length) return undefined;
-    const min = Math.min(...list.map((id) => used.get(id) ?? 0));
-    const least = list.filter((id) => (used.get(id) ?? 0) === min);
-    const home = least.filter((id) => p.pantry.includes(id));
-    const pool = home.length && rand() < 0.7 ? home : least;
-    const id = pool[Math.floor(rand() * pool.length)];
-    used.set(id, (used.get(id) ?? 0) + 1);
-    return id;
-  };
   const weekStart = mondayOf(today);
+  const filter = { allergies: p.allergies, dislikes: p.dislikes };
+  const usedDish = new Map<string, number>();
+  const usedFood = new Map<string, number>();
   const items: PlanItem[] = [];
   for (let d = 0; d < 7; d++) {
     const date = addDays(weekStart, d);
     for (const slot of p.slots) {
-      const shelves = SHELVES[slot];
-      const shelf = (id: string) => shelves.find((s) => s.id === id)?.ids ?? [];
-      let ids: (string | undefined)[] = [];
-      if (slot === 'comida' || slot === 'cena') {
-        const veg = shelf('verdura');
-        const protein = choose(shelf('proteina'));
-        const light = slot === 'cena' && rand() < 0.5; // cena ligera: sin base
-        const starch = light ? undefined : choose(shelf('base').filter((id) => STARCHES.includes(id)));
-        const green = choose(veg.filter((id) => BY_ID[id].green));
-        const other = choose(veg.filter((id) => !BY_ID[id].green && !['ajo', 'castanas'].includes(id)));
-        ids = [starch, protein, green, other];
-      } else {
-        const anchor = choose(ANCHORS[slot] ?? shelves[0].ids);
-        // Huevo, pan o bagel piden salado; lo demás, fruta
-        const savory = anchor && ['huevo', 'pan', 'bagel'].includes(anchor);
-        const fruits = savory ? ['tomate', 'aguacate', 'queso', 'salmon', 'bacon', 'huevo'] : shelf('fruta');
-        const f1 = choose(fruits, anchor ? [anchor] : []);
-        const f2 = rand() < 0.5 ? choose(fruits, [anchor ?? '', f1 ?? '']) : undefined;
-        const top = rand() < 0.6 ? choose(TOPPINGS, [anchor ?? '']) : undefined;
-        ids = [anchor, f1, f2, top];
+      let best: { dish: Dish; ids: string[]; score: number } | null = null;
+      for (const dish of DISHES) {
+        if (!dish.slots.includes(slot)) continue;
+        const ids = comboFor(dish, { ...filter, pantry: p.pantry, rand });
+        if (!ids || ids.length < 2) continue;
+        // Variedad: castiga repetir plato y repetir los mismos ingredientes principales
+        const repeats = ids.reduce((n, id) => n + (usedFood.get(id) ?? 0), 0);
+        const score =
+          rand() * 6 +
+          goalBonus(dish, ids, p.goal) +
+          ids.filter((id) => p.pantry.includes(id)).length * 2 -
+          (usedDish.get(dish.id) ?? 0) * 60 -
+          repeats * 2;
+        if (!best || score > best.score) best = { dish, ids, score };
       }
-      const clean = [...new Set(ids.filter((x): x is string => !!x))];
-      if (clean.length < 2) continue;
-      items.push({ date, slot, title: localRecipe(clean, p.dislikes).title, ingredients: clean });
+      if (!best) continue;
+      usedDish.set(best.dish.id, (usedDish.get(best.dish.id) ?? 0) + 1);
+      best.ids.forEach((id) => usedFood.set(id, (usedFood.get(id) ?? 0) + 1));
+      items.push({ date, slot, title: localRecipe(best.ids, p.dislikes, 1, slot).title, ingredients: best.ids });
     }
   }
   return { weekStart, items };
