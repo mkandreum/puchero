@@ -17,14 +17,16 @@ Estado a 28/10/2026. Repos: `mkandreum/puchero` (web + servidor) y `mkandreum/pu
 - [x] La IA escribe el plato elegido por el recetario en vez de inventarlo.
 - [x] "Con lo que tienes" en la cocina y pestaña Recetas en Semana (web y app).
 - [x] Mismo recetario en la app: `scripts/gen-catalog.ts` genera `Dishes.kt`; `Chef.kt` es el port del motor, con tests (`./gradlew testDebugUnitTest`).
-- [ ] Revisar el recetario con calma: añadir platos (hay pocos desayunos salados y meriendas de verdad) y pulir pasos y nombres.
+- [x] Recetario ampliado a 119 platos (27 desayunos, con desayunos salados y meriendas de siempre).
+- [ ] Seguir puliendo pasos y nombres a medida que se use.
 - [ ] Probar la IA con una clave de Gemini real para ver si respeta el plato elegido.
 
 ## 2. Más funciones
 
 - [x] "Con lo que tengo" y recetario navegable (hecho). Falta: favoritos de recetas del recetario.
-- [ ] Valor nutricional más completo por plato y por día (fibra, grasas, hidratos) y objetivo diario de kcal y proteína según el perfil.
-- [ ] Sustituciones: "no tengo X" y que proponga con qué cambiarlo (el recetario ya sabe las alternativas de cada grupo).
+- [x] Nutrición: hidratos, grasas y fibra por plato, "Hoy llevas" contra tu objetivo de kcal y proteína (ajustable en Yo) y medias semanales.
+- [ ] Objetivo diario calculado según edad, peso y actividad (ahora es un valor que eliges tú).
+- [x] Sustituciones "no tengo X" en el plato (web y app).
 - [ ] Ajustar raciones guardadas y reutilizar sobras ("cena de ayer → comida de hoy").
 - [ ] Lista de la compra agrupada por pasillo y compartible por WhatsApp.
 - [ ] Notas y puntuación de 1 a 5 en cada plato.
